@@ -1,15 +1,16 @@
-
 // Mock data service to provide questions and BCI metrics
 import { useState } from 'react';
 
 // Types
 export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 export type CognitiveLoadLevel = 'Low' | 'Medium' | 'High';
+export type QuestionType = 'multiple-choice' | 'text-input';
 
 export interface Question {
   id: number;
   text: string;
-  options: string[];
+  type: QuestionType;
+  options?: string[];
   correctAnswer: string;
   difficulty: DifficultyLevel;
 }
@@ -21,90 +22,189 @@ export interface BCIMetrics {
   cognitiveLoad: CognitiveLoadLevel;
 }
 
-// Mock questions with different difficulty levels
+// Mock questions with different difficulty levels and question types
 const mockQuestions: Question[] = [
+  // Easy Questions - Multiple Choice
   {
     id: 1,
-    text: "What is 5 + 3?",
-    options: ["7", "8", "9", "10"],
-    correctAnswer: "8",
+    text: "What is 123 x 3?",
+    type: "multiple-choice",
+    options: ["369", "389", "379", "359"],
+    correctAnswer: "369",
     difficulty: "easy"
   },
   {
     id: 2,
-    text: "What is 12 - 4?",
-    options: ["6", "7", "8", "9"],
-    correctAnswer: "8",
+    text: "What is the square root of 169?",
+    type: "multiple-choice",
+    options: ["12", "13", "14", "15"],
+    correctAnswer: "13",
     difficulty: "easy"
   },
   {
     id: 3,
-    text: "What is 9 × 3?",
-    options: ["18", "21", "24", "27"],
-    correctAnswer: "27",
+    text: "Simplify: 6² - 4²",
+    type: "multiple-choice",
+    options: ["20", "24", "28", "32"],
+    correctAnswer: "20",
     difficulty: "easy"
   },
+  // Easy Questions - Text Input
   {
     id: 4,
-    text: "What is 36 ÷ 6?",
-    options: ["4", "5", "6", "7"],
-    correctAnswer: "6",
+    text: "What is 25% of 320?",
+    type: "text-input",
+    correctAnswer: "80",
     difficulty: "easy"
   },
   {
     id: 5,
-    text: "If x + 8 = 15, what is x?",
-    options: ["5", "6", "7", "8"],
-    correctAnswer: "7",
-    difficulty: "medium"
+    text: "What is the value of π (up to 2 decimal places)?",
+    type: "text-input",
+    correctAnswer: "3.14",
+    difficulty: "easy"
   },
   {
     id: 6,
-    text: "Solve for y: 3y - 7 = 14",
+    text: "What is 37 x 9?",
+    type: "text-input",
+    correctAnswer: "333",
+    difficulty: "easy"
+  },
+  // Medium Questions - Multiple Choice (keeping some of the original medium questions)
+  {
+    id: 7,
+    text: "If x + 8 = 15, what is x?",
+    type: "multiple-choice",
     options: ["5", "6", "7", "8"],
     correctAnswer: "7",
     difficulty: "medium"
   },
   {
-    id: 7,
+    id: 8,
+    text: "Solve for y: 3y - 7 = 14",
+    type: "multiple-choice",
+    options: ["5", "6", "7", "8"],
+    correctAnswer: "7",
+    difficulty: "medium"
+  },
+  {
+    id: 9,
     text: "What is the value of 3² + 4²?",
+    type: "multiple-choice",
     options: ["25", "24", "23", "22"],
     correctAnswer: "25",
     difficulty: "medium"
   },
   {
-    id: 8,
+    id: 10,
     text: "Calculate: (8 × 5) + (7 × 2)",
+    type: "multiple-choice",
     options: ["49", "50", "51", "54"],
     correctAnswer: "54",
     difficulty: "medium"
   },
-  {
-    id: 9,
-    text: "Solve for x: 2x² - 5x - 3 = 0",
-    options: ["x = 3, x = -0.5", "x = 3, x = -1", "x = 2, x = -0.5", "x = 2, x = -1"],
-    correctAnswer: "x = 3, x = -0.5",
-    difficulty: "hard"
-  },
-  {
-    id: 10,
-    text: "Find the derivative of f(x) = x³ - 2x² + 4x - 1",
-    options: ["f'(x) = 3x² - 4x + 4", "f'(x) = 3x² - 4x", "f'(x) = 2x - 2", "f'(x) = 3x - 4"],
-    correctAnswer: "f'(x) = 3x² - 4x + 4",
-    difficulty: "hard"
-  },
+  // Hard Questions - Multiple Choice
   {
     id: 11,
-    text: "Evaluate ∫(2x - 3)dx from x=1 to x=4",
-    options: ["6.5", "7.5", "8.5", "9.5"],
-    correctAnswer: "7.5",
+    text: "Evaluate: ∫ sin²(x) dx",
+    type: "multiple-choice",
+    options: ["x/2 - sin(2x)/4 + C", "x/2 + sin(2x)/4 + C", "x - sin(2x)/2 + C", "sin(x)/cos(x) + C"],
+    correctAnswer: "x/2 - sin(2x)/4 + C",
     difficulty: "hard"
   },
   {
     id: 12,
-    text: "A quadratic function has roots at x = 2 and x = -3, and passes through the point (1, 12). Find the function.",
-    options: ["f(x) = 2x² + 2x - 12", "f(x) = 2x² + 2x - 6", "f(x) = -2x² - 2x + 12", "f(x) = -2x² - 2x + 6"],
-    correctAnswer: "f(x) = 2x² + 2x - 12",
+    text: "Solve: d²y/dx² - 2dy/dx + y = 0",
+    type: "multiple-choice",
+    options: ["y = c₁eˣ + c₂xeˣ", "y = c₁e²ˣ + c₂e⁻ˣ", "y = c₁sin(x) + c₂cos(x)", "y = c₁ + c₂e²ˣ"],
+    correctAnswer: "y = c₁eˣ + c₂xeˣ",
+    difficulty: "hard"
+  },
+  {
+    id: 13,
+    text: "Evaluate the limit: limₓ→∞ (ln x)/x",
+    type: "multiple-choice",
+    options: ["0", "1", "∞", "undefined"],
+    correctAnswer: "0",
+    difficulty: "hard"
+  },
+  // Hard Questions - Text Input
+  {
+    id: 14,
+    text: "What are the eigenvalues of [[3, 1, 2], [0, 2, 3], [1, 5, 6]]? List them separated by commas.",
+    type: "text-input",
+    correctAnswer: "1,4,6",
+    difficulty: "hard"
+  },
+  {
+    id: 15,
+    text: "Find the sum: ∑ (1/n³) from n=1 to ∞ (round to 3 decimal places)",
+    type: "text-input",
+    correctAnswer: "1.202",
+    difficulty: "hard"
+  },
+  {
+    id: 16,
+    text: "Evaluate: ∫ e^(-x²) dx from -∞ to ∞",
+    type: "text-input",
+    correctAnswer: "√π",
+    difficulty: "hard"
+  },
+  {
+    id: 17,
+    text: "Use L'Hôpital's Rule: limₓ→0 (sin x)/x",
+    type: "text-input",
+    correctAnswer: "1",
+    difficulty: "hard"
+  },
+  {
+    id: 18,
+    text: "Find the modulus of (7 - 24i)",
+    type: "text-input",
+    correctAnswer: "25",
+    difficulty: "hard"
+  },
+  {
+    id: 19,
+    text: "If A = {x ∈ z | x² < 20}, B = {x ∈ z | x is odd}, find A ∩ B as a set",
+    type: "text-input",
+    correctAnswer: "{-3,-1,1,3}",
+    difficulty: "hard"
+  },
+  {
+    id: 20,
+    text: "Evaluate: ∫ x·e^x dx",
+    type: "text-input",
+    correctAnswer: "x·e^x - e^x + C",
+    difficulty: "hard"
+  },
+  {
+    id: 21,
+    text: "Find det of matrix [[1,2,3],[4,5,6],[7,8,9]]",
+    type: "text-input",
+    correctAnswer: "0",
+    difficulty: "hard"
+  },
+  {
+    id: 22,
+    text: "Evaluate: 421 x 317",
+    type: "text-input",
+    correctAnswer: "133457",
+    difficulty: "hard"
+  },
+  {
+    id: 23,
+    text: "Solve: ∫ (ln x)/x dx",
+    type: "text-input",
+    correctAnswer: "(ln x)²/2 + C",
+    difficulty: "hard"
+  },
+  {
+    id: 24,
+    text: "Evaluate: limₓ→0 (1 - cos x)/x² (as a fraction)",
+    type: "text-input",
+    correctAnswer: "1/2",
     difficulty: "hard"
   }
 ];
