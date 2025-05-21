@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -7,6 +6,7 @@ import { CognitiveLoadIndicator } from './CognitiveLoadIndicator';
 import { QuestionCard } from './QuestionCard';
 import { SessionSidebar } from './SessionSidebar';
 import { CalibrationScreen } from './CalibrationScreen';
+import { StartScreen } from './StartScreen';
 import { 
   useDataService, 
   DifficultyLevel, 
@@ -29,7 +29,8 @@ export const TestInterface = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState<number[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [showCalibration, setShowCalibration] = useState(true);
+  const [showStartScreen, setShowStartScreen] = useState(true);
+  const [showCalibration, setShowCalibration] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
@@ -57,6 +58,12 @@ export const TestInterface = () => {
         setQuestionStartTime(Date.now());
       }
     }
+  };
+
+  // Handle start button click
+  const handleStart = () => {
+    setShowStartScreen(false);
+    setShowCalibration(true);
   };
 
   // Handle calibration complete
@@ -167,7 +174,12 @@ export const TestInterface = () => {
                          getQuestionsByDifficulty('medium').length + 
                          getQuestionsByDifficulty('hard').length;
 
-  // If calibration is still active, show the calibration screen
+  // Show start screen first
+  if (showStartScreen) {
+    return <StartScreen onStart={handleStart} />;
+  }
+
+  // If calibration is active, show the calibration screen
   if (showCalibration) {
     return <CalibrationScreen duration={30} onComplete={handleCalibrationComplete} />;
   }
