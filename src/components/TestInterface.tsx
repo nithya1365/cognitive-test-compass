@@ -80,6 +80,7 @@ export const TestInterface = () => {
       const timeSpent = (Date.now() - questionStartTime) / 1000;
       setTestResults(prev => [...prev, {
         questionId: currentQuestion.id,
+        question: currentQuestion.text,
         difficulty: currentQuestion.difficulty,
         isCorrect: isCorrect,
         timeSpent: timeSpent,
@@ -90,84 +91,86 @@ export const TestInterface = () => {
       }]);
     }
     
-    // Adjust difficulty based on cognitive load after a short delay
-    setTimeout(() => {
-      if (newMetrics.cognitiveLoad === 'High' && currentDifficulty !== 'easy') {
-        setCurrentDifficulty('easy');
-      } else if (newMetrics.cognitiveLoad === 'Low' && currentDifficulty !== 'hard') {
+    // Add current question to answered questions
+    setAnsweredQuestions(prev => [...prev, currentQuestion?.id || 0]);
+
+    // Check if we've reached 10 questions
+    if (answeredQuestions.length + 1 >= 10) {
+      setCurrentQuestion(null);
+      return;
+    }
+    
+    // Adjust difficulty based on cognitive load
+    if (newMetrics.cognitiveLoad === 'High' && currentDifficulty !== 'easy') {
+      setCurrentDifficulty('easy');
+    } else if (newMetrics.cognitiveLoad === 'Low' && currentDifficulty !== 'hard') {
+      setCurrentDifficulty('hard');
+    } else if (newMetrics.cognitiveLoad === 'Medium' && currentDifficulty !== 'medium') {
+      setCurrentDifficulty('medium');
+    }
+
+    // Find next question before updating state
+    const nextQuestion = findNextQuestion();
+    if (nextQuestion) {
+      setCurrentQuestion(nextQuestion);
+      setQuestionStartTime(Date.now());
+    } else {
+      setCurrentQuestion(null);
+    }
+  };
+
+  // Helper function to find next question
+  const findNextQuestion = () => {
+    if (!currentQuestion) return null;
+
+    // Get all questions for current difficulty
+    const currentDifficultyQuestions = getQuestionsByDifficulty(currentDifficulty);
+    
+    // Find next available question in current difficulty
+    const nextQuestion = currentDifficultyQuestions.find(q => 
+      !answeredQuestions.includes(q.id) && q.id !== currentQuestion.id
+    );
+
+    if (nextQuestion) {
+      return nextQuestion;
+    }
+
+    // If no more questions in current difficulty, try other difficulties
+    if (currentDifficulty === 'easy') {
+      const mediumQuestions = getQuestionsByDifficulty('medium');
+      return mediumQuestions.find(q => !answeredQuestions.includes(q.id));
+    } else if (currentDifficulty === 'medium') {
+      const hardQuestions = getQuestionsByDifficulty('hard');
+      const nextHard = hardQuestions.find(q => !answeredQuestions.includes(q.id));
+      if (nextHard) {
         setCurrentDifficulty('hard');
-      } else if (newMetrics.cognitiveLoad === 'Medium' && currentDifficulty !== 'medium') {
-        setCurrentDifficulty('medium');
+        return nextHard;
       }
-    }, 1000);
+      const easyQuestions = getQuestionsByDifficulty('easy');
+      return easyQuestions.find(q => !answeredQuestions.includes(q.id));
+    } else {
+      const mediumQuestions = getQuestionsByDifficulty('medium');
+      const nextMedium = mediumQuestions.find(q => !answeredQuestions.includes(q.id));
+      if (nextMedium) {
+        setCurrentDifficulty('medium');
+        return nextMedium;
+      }
+      const easyQuestions = getQuestionsByDifficulty('easy');
+      return easyQuestions.find(q => !answeredQuestions.includes(q.id));
+    }
   };
 
   // Handle exporting test results
   const handleExportResults = () => {
-    exportToCSV(testResults);
+    if (testResults.length > 0) {
+      exportToCSV(testResults);
+    }
   };
 
   // Get next question
   const handleNextQuestion = () => {
-    if (currentQuestion) {
-      setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
-      
-      // Find next question from the pool that hasn't been answered yet
-      const availableQuestions = questionPool.filter(q => 
-        !answeredQuestions.includes(q.id) && 
-        q.id !== currentQuestion.id
-      );
-      
-      if (availableQuestions.length > 0) {
-        setCurrentQuestion(availableQuestions[0]);
-      } else {
-        // If all questions in current difficulty are answered, check other difficulties
-        if (currentDifficulty === 'easy') {
-          const mediumQuestions = getQuestionsByDifficulty('medium');
-          const availableMedium = mediumQuestions.filter(q => !answeredQuestions.includes(q.id));
-          if (availableMedium.length > 0) {
-            setCurrentQuestion(availableMedium[0]);
-            setCurrentDifficulty('medium');
-          } else {
-            setCurrentQuestion(null); // All questions answered
-          }
-        } else if (currentDifficulty === 'medium') {
-          // Try hard questions first, then easy if needed
-          const hardQuestions = getQuestionsByDifficulty('hard');
-          const availableHard = hardQuestions.filter(q => !answeredQuestions.includes(q.id));
-          if (availableHard.length > 0) {
-            setCurrentQuestion(availableHard[0]);
-            setCurrentDifficulty('hard');
-          } else {
-            const easyQuestions = getQuestionsByDifficulty('easy');
-            const availableEasy = easyQuestions.filter(q => !answeredQuestions.includes(q.id));
-            if (availableEasy.length > 0) {
-              setCurrentQuestion(availableEasy[0]);
-              setCurrentDifficulty('easy');
-            } else {
-              setCurrentQuestion(null); // All questions answered
-            }
-          }
-        } else {
-          // For hard difficulty, try medium then easy
-          const mediumQuestions = getQuestionsByDifficulty('medium');
-          const availableMedium = mediumQuestions.filter(q => !answeredQuestions.includes(q.id));
-          if (availableMedium.length > 0) {
-            setCurrentQuestion(availableMedium[0]);
-            setCurrentDifficulty('medium');
-          } else {
-            const easyQuestions = getQuestionsByDifficulty('easy');
-            const availableEasy = easyQuestions.filter(q => !answeredQuestions.includes(q.id));
-            if (availableEasy.length > 0) {
-              setCurrentQuestion(availableEasy[0]);
-              setCurrentDifficulty('easy');
-            } else {
-              setCurrentQuestion(null); // All questions answered
-            }
-          }
-        }
-      }
-    }
+    if (!currentQuestion) return;
+    setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
   };
 
   const totalQuestions = getQuestionsByDifficulty('easy').length + 
@@ -181,7 +184,7 @@ export const TestInterface = () => {
 
   // If calibration is active, show the calibration screen
   if (showCalibration) {
-    return <CalibrationScreen duration={30} onComplete={handleCalibrationComplete} />;
+    return <CalibrationScreen duration={10} onComplete={handleCalibrationComplete} />;
   }
 
   // Completed state when all questions are answered
@@ -191,7 +194,7 @@ export const TestInterface = () => {
         {isSidebarOpen && (
           <SessionSidebar 
             questionCount={answeredQuestions.length}
-            totalQuestions={totalQuestions}
+            totalQuestions={10}
             metricsHistory={metricsHistory}
           />
         )}
@@ -202,9 +205,9 @@ export const TestInterface = () => {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center max-w-lg"
           >
-            <h1 className="text-3xl font-bold text-primary mb-4">Test Completed!</h1>
+            <h1 className="text-3xl font-bold text-primary mb-4">Congratulations!</h1>
             <p className="text-gray-400 mb-6">
-              You've answered all {answeredQuestions.length} questions.
+              You've completed all {answeredQuestions.length} questions.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

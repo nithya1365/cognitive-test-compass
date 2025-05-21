@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -71,7 +70,7 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
           </div>
           
           <div className="space-y-3 mb-6">
-            {question.options.map((option, index) => (
+            {question.options?.map((option, index) => (
               <button
                 key={index}
                 onClick={() => handleOptionSelect(option)}

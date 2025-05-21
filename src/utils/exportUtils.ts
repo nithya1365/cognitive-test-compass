@@ -1,8 +1,8 @@
-
 import { BCIMetrics } from "@/services/dataService";
 
 export interface TestResult {
   questionId: number;
+  question: string;
   difficulty: string;
   isCorrect: boolean;
   timeSpent: number;
@@ -16,6 +16,7 @@ export const exportToCSV = (results: TestResult[]) => {
   // Create CSV headers
   const headers = [
     "Question ID",
+    "Question",
     "Difficulty",
     "Correct",
     "Time Spent (s)",
@@ -28,6 +29,7 @@ export const exportToCSV = (results: TestResult[]) => {
   // Convert results to CSV rows
   const rows = results.map(result => [
     result.questionId,
+    `"${result.question.replace(/"/g, '""')}"`, // Escape quotes in question text
     result.difficulty,
     result.isCorrect ? "Yes" : "No",
     result.timeSpent,
