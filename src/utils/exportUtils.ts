@@ -10,6 +10,7 @@ export interface TestResult {
   beta: number;
   theta: number;
   cognitiveLoad: string;
+  timestamp: string;
 }
 
 export const exportToCSV = (results: TestResult[]) => {
@@ -23,7 +24,8 @@ export const exportToCSV = (results: TestResult[]) => {
     "Alpha",
     "Beta",
     "Theta",
-    "Cognitive Load"
+    "Cognitive Load",
+    "Timestamp"
   ];
   
   // Convert results to CSV rows
@@ -36,7 +38,8 @@ export const exportToCSV = (results: TestResult[]) => {
     result.alpha,
     result.beta,
     result.theta,
-    result.cognitiveLoad
+    result.cognitiveLoad,
+    `"${result.timestamp.replace(/"/g, '""')}"` // Wrap timestamp in quotes and escape any internal quotes
   ]);
   
   // Combine headers and rows

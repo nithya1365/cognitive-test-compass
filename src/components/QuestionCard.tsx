@@ -13,6 +13,7 @@ interface QuestionCardProps {
 
 export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [textAnswer, setTextAnswer] = useState<string>('');
   const [isAnswered, setIsAnswered] = useState(false);
 
   const handleOptionSelect = (option: string) => {
@@ -21,15 +22,24 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
   };
   
   const handleSubmit = () => {
-    if (!selectedOption || isAnswered) return;
+    if (isAnswered) return;
+
+    let isCorrect = false;
+    if (question.type === 'multiple-choice') {
+      if (!selectedOption) return; // Should not happen with disabled state
+      isCorrect = selectedOption === question.correctAnswer;
+    } else if (question.type === 'text-input') {
+       if (textAnswer.trim() === '') return; // Should not happen with disabled state
+      isCorrect = textAnswer.trim() === question.correctAnswer;
+    }
     
-    const isCorrect = selectedOption === question.correctAnswer;
     setIsAnswered(true);
     onAnswer(isCorrect);
   };
 
   const handleNext = () => {
     setSelectedOption(null);
+    setTextAnswer('');
     setIsAnswered(false);
     onNext();
   };
@@ -70,27 +80,38 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
           </div>
           
           <div className="space-y-3 mb-6">
-            {question.options?.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => handleOptionSelect(option)}
+            {question.type === 'multiple-choice' ? (
+              question.options?.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleOptionSelect(option)}
+                  disabled={isAnswered}
+                  className={cn(
+                    "w-full py-4 px-5 rounded-xl text-left border-2 transition-all",
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50",
+                    getOptionClass(option)
+                  )}
+                >
+                  <span className="text-base">{option}</span>
+                </button>
+              ))
+            ) : (
+              <input
+                type="text"
+                value={textAnswer}
+                onChange={(e) => setTextAnswer(e.target.value)}
                 disabled={isAnswered}
-                className={cn(
-                  "w-full py-4 px-5 rounded-xl text-left border-2 transition-all",
-                  "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                  getOptionClass(option)
-                )}
-              >
-                <span className="text-base">{option}</span>
-              </button>
-            ))}
+                className="w-full py-4 px-5 rounded-xl border-2 border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
+                placeholder="Type your answer here"
+              />
+            )}
           </div>
           
           {!isAnswered ? (
             <div className="mt-6 flex justify-end">
               <Button 
                 onClick={handleSubmit}
-                disabled={!selectedOption}
+                disabled={question.type === 'multiple-choice' ? !selectedOption : textAnswer.trim() === ''}
                 className="px-6"
               >
                 Submit Answer

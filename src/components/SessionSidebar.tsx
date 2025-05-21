@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { formatTime } from '@/utils/timeUtils';
 import { BCIMetrics } from '@/services/dataService';
@@ -10,22 +9,31 @@ interface SessionSidebarProps {
   questionCount: number;
   totalQuestions: number;
   metricsHistory: BCIMetrics[];
+  isTestActive: boolean;
 }
 
 export const SessionSidebar = ({ 
   questionCount, 
   totalQuestions, 
-  metricsHistory 
+  metricsHistory, 
+  isTestActive 
 }: SessionSidebarProps) => {
   const [timer, setTimer] = useState(0);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer(prev => prev + 1);
-    }, 1000);
+    let interval: NodeJS.Timeout | null = null;
+    if (isTestActive) {
+      interval = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    }
     
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isTestActive]);
 
   return (
     <div className="w-full md:w-64 lg:w-80 bg-sidebar p-4 border-r border-border">

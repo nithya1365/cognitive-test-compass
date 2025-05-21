@@ -33,6 +33,7 @@ export const TestInterface = () => {
   const [showCalibration, setShowCalibration] = useState(false);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
+  const [isTestActive, setIsTestActive] = useState(false);
 
   // Initialize with questions
   useEffect(() => {
@@ -69,6 +70,8 @@ export const TestInterface = () => {
   // Handle calibration complete
   const handleCalibrationComplete = () => {
     setShowCalibration(false);
+    setIsTestActive(true);
+    setQuestionStartTime(Date.now());
   };
 
   // Handle answer submission
@@ -78,6 +81,17 @@ export const TestInterface = () => {
     // Record test result
     if (currentQuestion) {
       const timeSpent = (Date.now() - questionStartTime) / 1000;
+      
+      // Format timestamp as DD/MM/YYYY, HH:mm:ss
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const formattedTimestamp = `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+
       setTestResults(prev => [...prev, {
         questionId: currentQuestion.id,
         question: currentQuestion.text,
@@ -87,7 +101,8 @@ export const TestInterface = () => {
         alpha: newMetrics.alpha,
         beta: newMetrics.beta,
         theta: newMetrics.theta,
-        cognitiveLoad: newMetrics.cognitiveLoad
+        cognitiveLoad: newMetrics.cognitiveLoad,
+        timestamp: formattedTimestamp
       }]);
     }
     
@@ -97,6 +112,7 @@ export const TestInterface = () => {
     // Check if we've reached 10 questions
     if (answeredQuestions.length + 1 >= 10) {
       setCurrentQuestion(null);
+      setIsTestActive(false);
       return;
     }
     
@@ -116,6 +132,7 @@ export const TestInterface = () => {
       setQuestionStartTime(Date.now());
     } else {
       setCurrentQuestion(null);
+      setIsTestActive(false);
     }
   };
 
@@ -196,6 +213,7 @@ export const TestInterface = () => {
             questionCount={answeredQuestions.length}
             totalQuestions={10}
             metricsHistory={metricsHistory}
+            isTestActive={false}
           />
         )}
         
@@ -218,6 +236,7 @@ export const TestInterface = () => {
                   loadQuestions('medium');
                   setTestResults([]);
                   setShowCalibration(true);
+                  setIsTestActive(false);
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
@@ -247,6 +266,7 @@ export const TestInterface = () => {
           questionCount={answeredQuestions.length}
           totalQuestions={totalQuestions}
           metricsHistory={metricsHistory}
+          isTestActive={isTestActive}
         />
       )}
       
