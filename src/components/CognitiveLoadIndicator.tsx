@@ -10,26 +10,26 @@ export const CognitiveLoadIndicator = ({ level }: CognitiveLoadIndicatorProps) =
   const getColorClass = () => {
     switch (level) {
       case 'Low':
-        return 'bg-low-load';
+        return 'bg-blue-500/20';
       case 'Medium':
-        return 'bg-yellow-100';
+        return 'bg-yellow-500/20';
       case 'High':
-        return 'bg-high-load';
+        return 'bg-red-500/20';
       default:
-        return 'bg-gray-100';
+        return 'bg-gray-500/20';
     }
   };
 
   const getTextColorClass = () => {
     switch (level) {
       case 'Low':
-        return 'text-blue-700';
+        return 'text-blue-400';
       case 'Medium':
-        return 'text-yellow-700';
+        return 'text-yellow-400';
       case 'High':
-        return 'text-red-700';
+        return 'text-red-400';
       default:
-        return 'text-gray-700';
+        return 'text-gray-400';
     }
   };
 

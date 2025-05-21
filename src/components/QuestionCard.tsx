@@ -18,9 +18,13 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
 
   const handleOptionSelect = (option: string) => {
     if (isAnswered) return;
-    
     setSelectedOption(option);
-    const isCorrect = option === question.correctAnswer;
+  };
+  
+  const handleSubmit = () => {
+    if (!selectedOption || isAnswered) return;
+    
+    const isCorrect = selectedOption === question.correctAnswer;
     setIsAnswered(true);
     onAnswer(isCorrect);
   };
@@ -34,16 +38,16 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
   const getOptionClass = (option: string) => {
     if (!isAnswered) {
       return selectedOption === option 
-        ? "border-primary bg-accent" 
-        : "border-border hover:border-primary hover:bg-accent/50";
+        ? "border-primary bg-primary/10" 
+        : "border-border hover:border-primary/50 hover:bg-card/80";
     }
 
     if (option === question.correctAnswer) {
-      return "border-green-500 bg-green-50 text-green-700";
+      return "border-green-500 bg-green-500/10 text-green-400";
     }
 
     if (selectedOption === option && option !== question.correctAnswer) {
-      return "border-red-500 bg-red-50 text-red-700";
+      return "border-red-500 bg-red-500/10 text-red-400";
     }
 
     return "border-border opacity-60";
@@ -55,18 +59,18 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="w-full max-w-xl"
+      className="w-full max-w-xl mx-auto"
     >
-      <Card className="shadow-md card-hover-effect">
+      <Card className="shadow-md border border-border">
         <CardContent className="p-6">
           <div className="mb-6">
             <div className="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium mb-4">
               {question.difficulty.charAt(0).toUpperCase() + question.difficulty.slice(1)}
             </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">{question.text}</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-4">{question.text}</h2>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-3 mb-6">
             {question.options.map((option, index) => (
               <button
                 key={index}
@@ -83,9 +87,22 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
             ))}
           </div>
           
-          {isAnswered && (
+          {!isAnswered ? (
             <div className="mt-6 flex justify-end">
-              <Button onClick={handleNext} className="px-6">
+              <Button 
+                onClick={handleSubmit}
+                disabled={!selectedOption}
+                className="px-6"
+              >
+                Submit Answer
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-6 flex justify-end">
+              <Button 
+                onClick={handleNext} 
+                className="px-6"
+              >
                 Next Question
               </Button>
             </div>

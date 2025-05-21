@@ -6,11 +6,15 @@ import { BCIMetricsGauge } from './BCIMetricsGauge';
 import { CognitiveLoadIndicator } from './CognitiveLoadIndicator';
 import { QuestionCard } from './QuestionCard';
 import { SessionSidebar } from './SessionSidebar';
+import { CalibrationScreen } from './CalibrationScreen';
 import { 
   useDataService, 
   DifficultyLevel, 
   Question
 } from '@/services/dataService';
+import { exportToCSV, TestResult } from '@/utils/exportUtils';
+import { Button } from './ui/button';
+import { Download } from 'lucide-react';
 
 export const TestInterface = () => {
   const { 
@@ -25,6 +29,9 @@ export const TestInterface = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answeredQuestions, setAnsweredQuestions] = useState<number[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [showCalibration, setShowCalibration] = useState(true);
+  const [testResults, setTestResults] = useState<TestResult[]>([]);
+  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
 
   // Initialize with questions
   useEffect(() => {
@@ -47,13 +54,34 @@ export const TestInterface = () => {
       const availableQuestions = questions.filter(q => !answeredQuestions.includes(q.id));
       if (availableQuestions.length > 0) {
         setCurrentQuestion(availableQuestions[0]);
+        setQuestionStartTime(Date.now());
       }
     }
+  };
+
+  // Handle calibration complete
+  const handleCalibrationComplete = () => {
+    setShowCalibration(false);
   };
 
   // Handle answer submission
   const handleAnswerSubmitted = (isCorrect: boolean) => {
     const newMetrics = updateBCIMetrics(isCorrect);
+    
+    // Record test result
+    if (currentQuestion) {
+      const timeSpent = (Date.now() - questionStartTime) / 1000;
+      setTestResults(prev => [...prev, {
+        questionId: currentQuestion.id,
+        difficulty: currentQuestion.difficulty,
+        isCorrect: isCorrect,
+        timeSpent: timeSpent,
+        alpha: newMetrics.alpha,
+        beta: newMetrics.beta,
+        theta: newMetrics.theta,
+        cognitiveLoad: newMetrics.cognitiveLoad
+      }]);
+    }
     
     // Adjust difficulty based on cognitive load after a short delay
     setTimeout(() => {
@@ -65,6 +93,11 @@ export const TestInterface = () => {
         setCurrentDifficulty('medium');
       }
     }, 1000);
+  };
+
+  // Handle exporting test results
+  const handleExportResults = () => {
+    exportToCSV(testResults);
   };
 
   // Get next question
@@ -134,6 +167,11 @@ export const TestInterface = () => {
                          getQuestionsByDifficulty('medium').length + 
                          getQuestionsByDifficulty('hard').length;
 
+  // If calibration is still active, show the calibration screen
+  if (showCalibration) {
+    return <CalibrationScreen duration={30} onComplete={handleCalibrationComplete} />;
+  }
+
   // Completed state when all questions are answered
   if (!currentQuestion && answeredQuestions.length > 0) {
     return (
@@ -150,22 +188,36 @@ export const TestInterface = () => {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-center"
+            className="text-center max-w-lg"
           >
             <h1 className="text-3xl font-bold text-primary mb-4">Test Completed!</h1>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-400 mb-6">
               You've answered all {answeredQuestions.length} questions.
             </p>
-            <button 
-              onClick={() => {
-                setAnsweredQuestions([]);
-                setCurrentDifficulty('medium');
-                loadQuestions('medium');
-              }}
-              className="bg-primary hover:bg-primary/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-            >
-              Start New Test
-            </button>
+            
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Button 
+                onClick={() => {
+                  setAnsweredQuestions([]);
+                  setCurrentDifficulty('medium');
+                  loadQuestions('medium');
+                  setTestResults([]);
+                  setShowCalibration(true);
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                Start New Test
+              </Button>
+              
+              <Button 
+                onClick={handleExportResults}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Download size={16} />
+                Download Results (CSV)
+              </Button>
+            </div>
           </motion.div>
         </div>
       </div>
@@ -208,12 +260,12 @@ export const TestInterface = () => {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-6">Adaptive Math Assessment</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-6">Adaptive Math Assessment</h1>
             
             {/* BCI Metrics */}
-            <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+            <div className="bg-card rounded-xl shadow-sm p-4 mb-6 border border-border">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-gray-700">Brain-Computer Interface Metrics</h2>
+                <h2 className="text-lg font-medium text-foreground">Brain-Computer Interface Metrics</h2>
                 <CognitiveLoadIndicator level={currentMetrics.cognitiveLoad} />
               </div>
               

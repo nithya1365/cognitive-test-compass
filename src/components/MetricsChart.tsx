@@ -23,20 +23,25 @@ export const MetricsChart = ({ data }: MetricsChartProps) => {
           data={chartData}
           margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#2d3747" />
           <XAxis 
             dataKey="index" 
             tick={false} 
-            axisLine={false} 
-            label={{ value: 'Time', position: 'insideBottomRight', offset: -5 }} 
+            axisLine={{ stroke: '#4a5568' }}
+            label={{ value: 'Time', position: 'insideBottomRight', offset: -5, fill: '#a0aec0' }} 
           />
-          <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+          <YAxis 
+            domain={[0, 100]} 
+            tick={{ fontSize: 10, fill: '#a0aec0' }}
+            axisLine={{ stroke: '#4a5568' }}
+          />
           <Tooltip 
             contentStyle={{ 
-              backgroundColor: 'white', 
+              backgroundColor: 'hsl(222 47% 14%)', 
               borderRadius: '8px', 
-              border: '1px solid #f0f0f0',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' 
+              border: '1px solid hsl(217 32% 17%)',
+              color: '#e2e8f0',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)' 
             }} 
           />
           <Line 
