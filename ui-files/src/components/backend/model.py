@@ -93,7 +93,8 @@ plt.ylabel('Alpha Cognitive Index (%)')
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.show()
+plt.savefig('graph.png', bbox_inches='tight')
+plt.close()
 
 # === Step 9: Train/test split ===
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, stratify=y, test_size=0.3, random_state=42)
@@ -116,7 +117,8 @@ plt.title('Confusion Matrix')
 plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.tight_layout()
-plt.show()
+plt.savefig('confusion_matrix.png', bbox_inches='tight')
+plt.close()
 
 
 # === Step 12: Cross-validation Accuracy ===
@@ -161,7 +163,8 @@ plt.xticks(rotation=45)
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.show()
+plt.savefig('graph_svm.png', bbox_inches='tight')
+plt.close()
 
 
 

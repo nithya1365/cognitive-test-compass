@@ -1,8 +1,11 @@
 from flask import Flask, send_file
+from flask_cors import CORS
 import subprocess
 import os
 
+
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/run-model', methods=['POST'])
 def run_model():
@@ -15,6 +18,16 @@ def get_graph():
     # Serve the generated graph image (assume it's saved as 'graph.png')
     graph_path = os.path.join(os.path.dirname(__file__), 'graph.png')
     return send_file(graph_path, mimetype='image/png')
+
+@app.route('/get-confusion-matrix')
+def get_confusion_matrix():
+    cm_path = os.path.join(os.path.dirname(__file__), 'confusion_matrix.png')
+    return send_file(cm_path, mimetype='image/png')
+
+@app.route('/get-graph-svm')
+def get_graph_svm():
+    svm_path = os.path.join(os.path.dirname(__file__), 'graph_svm.png')
+    return send_file(svm_path, mimetype='image/png')
 
 @app.route('/get-results')
 def get_results():
