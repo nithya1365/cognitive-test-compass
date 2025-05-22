@@ -204,8 +204,8 @@ const getRandomQuestions = (pool: Question[], count: number): Question[] => {
 
 // Function to get all sample test questions in order
 export const getSampleTestQuestions = (): Question[] => {
-  // Get 5 random easy questions and 5 random hard questions
-  const selectedEasyQuestions = getRandomQuestions(easyQuestionsPool, 5);
+  // Get 10 random easy questions and 5 random hard questions
+  const selectedEasyQuestions = getRandomQuestions(easyQuestionsPool, 10);
   const selectedHardQuestions = getRandomQuestions(hardQuestionsPool, 5);
   
   // Combine them in order (easy first, then hard)

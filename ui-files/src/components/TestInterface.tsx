@@ -37,7 +37,7 @@ export const TestInterface = () => {
   const [isTestActive, setIsTestActive] = useState(false);
   const [isSampleTest, setIsSampleTest] = useState(false);
   const [sampleTestPhase, setSampleTestPhase] = useState<'easy' | 'hard'>('easy');
-  const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState<number>(480); // 8 minutes in seconds
   const [isTimeUp, setIsTimeUp] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [currentPhase, setCurrentPhase] = useState<'calibration' | 'easy' | 'hard'>(
@@ -177,8 +177,8 @@ export const TestInterface = () => {
 
     // Check if we've reached the end of the test
     if (isSampleTest) {
-      // Stop after 10 questions for sample test
-      if (answeredQuestions.length + 1 >= 10) {
+      // Stop after 15 questions for sample test (10 easy + 5 hard)
+      if (answeredQuestions.length + 1 >= 15) {
         setCurrentQuestion(null);
         setIsTestActive(false);
         return;
@@ -273,7 +273,7 @@ export const TestInterface = () => {
     
     if (isSampleTest) {
       const nextIndex = answeredQuestions.length + 1;
-      if (nextIndex < 10) { // Only 10 questions in sample test
+      if (nextIndex < 15) { // Changed from 14 to 15 questions
         const nextQuestion = getSampleQuestionByIndex(nextIndex);
         if (nextQuestion) {
           setCurrentQuestion(nextQuestion);
@@ -306,7 +306,7 @@ export const TestInterface = () => {
 
   // If calibration is active, show the calibration screen
   if (showCalibration && isSampleTest) {
-    return <CalibrationScreen duration={60} onComplete={handleCalibrationComplete} />;
+    return <CalibrationScreen duration={3} onComplete={handleCalibrationComplete} />;
   }
 
   // Completed state when all questions are answered or time is up
@@ -316,7 +316,7 @@ export const TestInterface = () => {
         {isSidebarOpen && (
           <SessionSidebar 
             questionCount={answeredQuestions.length}
-            totalQuestions={isSampleTest ? 10 : 10}
+            totalQuestions={isSampleTest ? 15 : 10}
             metricsHistory={metricsHistory}
             isTestActive={false}
           />
@@ -348,7 +348,7 @@ export const TestInterface = () => {
                   setShowCalibration(true);
                   setIsTestActive(false);
                   setIsTimeUp(false);
-                  setTimeRemaining(300); // Reset to 5 minutes
+                  setTimeRemaining(480); // Reset to 8 minutes
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
@@ -392,7 +392,7 @@ export const TestInterface = () => {
                   setIsTestActive(false);
                   setShowCalibration(false);
                   setIsTimeUp(false);
-                  setTimeRemaining(300); // Reset to 5 minutes
+                  setTimeRemaining(480); // Reset to 8 minutes
                   setAnsweredQuestions([]);
                   setTestResults([]);
                   if (timerRef.current) {
@@ -418,7 +418,7 @@ export const TestInterface = () => {
       {isSidebarOpen && (
         <SessionSidebar 
           questionCount={answeredQuestions.length}
-          totalQuestions={isSampleTest ? 10 : 10}
+          totalQuestions={isSampleTest ? 15 : 10}
           metricsHistory={metricsHistory}
           isTestActive={isTestActive}
         />

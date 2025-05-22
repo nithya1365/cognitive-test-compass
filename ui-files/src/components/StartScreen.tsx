@@ -39,7 +39,7 @@ export const StartScreen = ({ onStart }: StartScreenProps) => {
             onClick={() => onStart(true)}
             className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-8 py-2"
           >
-            Start Sample Test (5 Easy + 5 Hard Questions)
+            Start Sample Test (7 Easy + 7 Hard Questions)
           </Button>
         </div>
       </motion.div>
