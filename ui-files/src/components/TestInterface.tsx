@@ -388,22 +388,13 @@ export const TestInterface = () => {
 
               <Button 
                 onClick={() => {
-                  setShowStartScreen(true);
-                  setIsTestActive(false);
-                  setShowCalibration(false);
-                  setIsTimeUp(false);
-                  setTimeRemaining(480); // Reset to 8 minutes
-                  setAnsweredQuestions([]);
-                  setTestResults([]);
-                  if (timerRef.current) {
-                    clearInterval(timerRef.current);
-                    timerRef.current = null;
-                  }
+                  // Navigate to results page instead of home
+                  window.location.href = '/results';
                 }}
                 variant="ghost"
                 className="text-muted-foreground hover:text-foreground"
               >
-                Back to Start
+                Display Results
               </Button>
             </div>
           </motion.div>
