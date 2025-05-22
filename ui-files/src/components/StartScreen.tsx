@@ -1,9 +1,8 @@
-
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 
 interface StartScreenProps {
-  onStart: () => void;
+  onStart: (isSampleTest: boolean) => void;
 }
 
 export const StartScreen = ({ onStart }: StartScreenProps) => {
@@ -20,21 +19,29 @@ export const StartScreen = ({ onStart }: StartScreenProps) => {
           <h2 className="text-xl font-medium mb-4">Welcome</h2>
           <p className="text-muted-foreground mb-6">
             This test uses brain-computer interface technology to adapt to your cognitive state.
-            Before we begin, you'll need to calibrate the BCI device.
+            For the sample test, you'll need to calibrate the BCI device.
           </p>
           
           <p className="text-sm text-muted-foreground mb-6">
-            When you're ready, click the button below to start the calibration process.
-            You'll be asked to sit calmly with your eyes closed for 30 seconds.
+            Choose one of the options below to begin your assessment.
           </p>
         </div>
         
-        <Button 
-          onClick={onStart}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2"
-        >
-          Start Test
-        </Button>
+        <div className="flex flex-col gap-4">
+          <Button 
+            onClick={() => onStart(false)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-2"
+          >
+            Start Full Test
+          </Button>
+          
+          <Button 
+            onClick={() => onStart(true)}
+            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-8 py-2"
+          >
+            Start Sample Test (5 Easy + 5 Hard Questions)
+          </Button>
+        </div>
       </motion.div>
     </div>
   );

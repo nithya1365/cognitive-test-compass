@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { BCIMetricsGauge } from './BCIMetricsGauge';
@@ -12,6 +12,7 @@ import {
   DifficultyLevel, 
   Question
 } from '@/services/dataService';
+import { getSampleTestQuestions, getSampleQuestionByIndex } from '@/services/sampleTestService';
 import { exportToCSV, TestResult } from '@/utils/exportUtils';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
@@ -34,16 +35,55 @@ export const TestInterface = () => {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [isTestActive, setIsTestActive] = useState(false);
+  const [isSampleTest, setIsSampleTest] = useState(false);
+  const [sampleTestPhase, setSampleTestPhase] = useState<'easy' | 'hard'>('easy');
+  const [timeRemaining, setTimeRemaining] = useState<number>(300); // 5 minutes in seconds
+  const [isTimeUp, setIsTimeUp] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<'calibration' | 'easy' | 'hard'>(
+    isSampleTest ? 'calibration' : 'easy'
+  );
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isTestComplete, setIsTestComplete] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [calibrationComplete, setCalibrationComplete] = useState(!isSampleTest);
 
   // Initialize with questions
   useEffect(() => {
-    loadQuestions('medium');
-  }, []);
+    if (isSampleTest) {
+      loadSampleTestQuestions();
+    } else {
+      loadQuestions('medium');
+    }
+  }, [isSampleTest]);
 
   // Update questions when difficulty changes
   useEffect(() => {
     loadQuestions(currentDifficulty);
   }, [currentDifficulty]);
+
+  // Timer effect for sample test
+  useEffect(() => {
+    if (isSampleTest && isTestActive && !isTimeUp) {
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            setIsTimeUp(true);
+            setIsTestActive(false);
+            setCurrentQuestion(null);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [isSampleTest, isTestActive, isTimeUp]);
 
   // Load questions for a given difficulty
   const loadQuestions = (difficulty: DifficultyLevel) => {
@@ -61,10 +101,27 @@ export const TestInterface = () => {
     }
   };
 
+  // Load questions for sample test
+  const loadSampleTestQuestions = () => {
+    const sampleQuestions = getSampleTestQuestions();
+    setQuestionPool(sampleQuestions);
+    
+    if (sampleQuestions.length > 0) {
+      setCurrentQuestion(sampleQuestions[0]);
+      setQuestionStartTime(Date.now());
+    }
+  };
+
   // Handle start button click
-  const handleStart = () => {
+  const handleStart = (isSample: boolean) => {
+    setIsSampleTest(isSample);
     setShowStartScreen(false);
-    setShowCalibration(true);
+    if (isSample) {
+      setShowCalibration(true);
+    } else {
+      setIsTestActive(true);
+      setQuestionStartTime(Date.now());
+    }
   };
 
   // Handle calibration complete
@@ -74,8 +131,15 @@ export const TestInterface = () => {
     setQuestionStartTime(Date.now());
   };
 
+  // Format time remaining
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   // Handle answer submission
-  const handleAnswerSubmitted = (isCorrect: boolean) => {
+  const handleAnswerSubmitted = (isCorrect: boolean, userAnswer: string) => {
     const newMetrics = updateBCIMetrics(isCorrect);
     
     // Record test result
@@ -85,7 +149,7 @@ export const TestInterface = () => {
       // Format timestamp as DD/MM/YYYY, HH:mm:ss
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+      const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = now.getFullYear();
       const hours = String(now.getHours()).padStart(2, '0');
       const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -97,6 +161,8 @@ export const TestInterface = () => {
         question: currentQuestion.text,
         difficulty: currentQuestion.difficulty,
         isCorrect: isCorrect,
+        userAnswer: userAnswer,
+        correctAnswer: currentQuestion.correctAnswer,
         timeSpent: timeSpent,
         alpha: newMetrics.alpha,
         beta: newMetrics.beta,
@@ -109,24 +175,39 @@ export const TestInterface = () => {
     // Add current question to answered questions
     setAnsweredQuestions(prev => [...prev, currentQuestion?.id || 0]);
 
-    // Check if we've reached 10 questions
-    if (answeredQuestions.length + 1 >= 10) {
-      setCurrentQuestion(null);
-      setIsTestActive(false);
-      return;
+    // Check if we've reached the end of the test
+    if (isSampleTest) {
+      // Stop after 10 questions for sample test
+      if (answeredQuestions.length + 1 >= 10) {
+        setCurrentQuestion(null);
+        setIsTestActive(false);
+        return;
+      }
+    } else {
+      // Original logic for full test
+      if (answeredQuestions.length + 1 >= 10) {
+        setCurrentQuestion(null);
+        setIsTestActive(false);
+        return;
+      }
     }
     
-    // Adjust difficulty based on cognitive load
-    if (newMetrics.cognitiveLoad === 'High' && currentDifficulty !== 'easy') {
-      setCurrentDifficulty('easy');
-    } else if (newMetrics.cognitiveLoad === 'Low' && currentDifficulty !== 'hard') {
-      setCurrentDifficulty('hard');
-    } else if (newMetrics.cognitiveLoad === 'Medium' && currentDifficulty !== 'medium') {
-      setCurrentDifficulty('medium');
+    // Adjust difficulty based on cognitive load (only for full test)
+    if (!isSampleTest) {
+      if (newMetrics.cognitiveLoad === 'High' && currentDifficulty !== 'easy') {
+        setCurrentDifficulty('easy');
+      } else if (newMetrics.cognitiveLoad === 'Low' && currentDifficulty !== 'hard') {
+        setCurrentDifficulty('hard');
+      } else if (newMetrics.cognitiveLoad === 'Medium' && currentDifficulty !== 'medium') {
+        setCurrentDifficulty('medium');
+      }
     }
 
     // Find next question before updating state
-    const nextQuestion = findNextQuestion();
+    const nextQuestion = isSampleTest 
+      ? getSampleQuestionByIndex(answeredQuestions.length + 1)
+      : findNextQuestion();
+
     if (nextQuestion) {
       setCurrentQuestion(nextQuestion);
       setQuestionStartTime(Date.now());
@@ -187,7 +268,31 @@ export const TestInterface = () => {
   // Get next question
   const handleNextQuestion = () => {
     if (!currentQuestion) return;
+    
     setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
+    
+    if (isSampleTest) {
+      const nextIndex = answeredQuestions.length + 1;
+      if (nextIndex < 10) { // Only 10 questions in sample test
+        const nextQuestion = getSampleQuestionByIndex(nextIndex);
+        if (nextQuestion) {
+          setCurrentQuestion(nextQuestion);
+          setQuestionStartTime(Date.now());
+        } else {
+          setCurrentQuestion(null);
+          setIsTestActive(false);
+        }
+      } else {
+        setCurrentQuestion(null);
+        setIsTestActive(false);
+      }
+    } else {
+      // Original logic for full test
+      const availableQuestions = questionPool.filter(q => !answeredQuestions.includes(q.id));
+      if (availableQuestions.length > 0) {
+        setCurrentQuestion(availableQuestions[0]);
+      }
+    }
   };
 
   const totalQuestions = getQuestionsByDifficulty('easy').length + 
@@ -200,18 +305,18 @@ export const TestInterface = () => {
   }
 
   // If calibration is active, show the calibration screen
-  if (showCalibration) {
-    return <CalibrationScreen duration={10} onComplete={handleCalibrationComplete} />;
+  if (showCalibration && isSampleTest) {
+    return <CalibrationScreen duration={60} onComplete={handleCalibrationComplete} />;
   }
 
-  // Completed state when all questions are answered
-  if (!currentQuestion && answeredQuestions.length > 0) {
+  // Completed state when all questions are answered or time is up
+  if ((!currentQuestion && answeredQuestions.length > 0) || isTimeUp) {
     return (
       <div className="flex flex-col md:flex-row min-h-screen bg-background">
         {isSidebarOpen && (
           <SessionSidebar 
             questionCount={answeredQuestions.length}
-            totalQuestions={10}
+            totalQuestions={isSampleTest ? 10 : 10}
             metricsHistory={metricsHistory}
             isTestActive={false}
           />
@@ -223,9 +328,14 @@ export const TestInterface = () => {
             animate={{ opacity: 1, scale: 1 }}
             className="text-center max-w-lg"
           >
-            <h1 className="text-3xl font-bold text-primary mb-4">Congratulations!</h1>
+            <h1 className="text-3xl font-bold text-primary mb-4">
+              {isTimeUp ? "Time's Up!" : "Congratulations!"}
+            </h1>
             <p className="text-gray-400 mb-6">
-              You've completed all {answeredQuestions.length} questions.
+              {isTimeUp 
+                ? `You've completed ${answeredQuestions.length} questions in the time limit.`
+                : `You've completed all ${answeredQuestions.length} questions.`
+              }
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -237,10 +347,34 @@ export const TestInterface = () => {
                   setTestResults([]);
                   setShowCalibration(true);
                   setIsTestActive(false);
+                  setIsTimeUp(false);
+                  setTimeRemaining(300); // Reset to 5 minutes
                 }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Start New Test
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  setIsSampleTest(false);
+                  setAnsweredQuestions([]);
+                  setCurrentDifficulty('medium');
+                  loadQuestions('medium');
+                  setTestResults([]);
+                  setIsTestActive(true);
+                  setQuestionStartTime(Date.now()); // Reset question start time
+                  setIsTimeUp(false);
+                  setTimeRemaining(0); // Reset timer to 0 for full test
+                  // Clear any existing timer
+                  if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                  }
+                }}
+                className="bg-secondary hover:bg-secondary/90 text-secondary-foreground"
+              >
+                Start Full Test
               </Button>
               
               <Button 
@@ -250,6 +384,26 @@ export const TestInterface = () => {
               >
                 <Download size={16} />
                 Download Results (CSV)
+              </Button>
+
+              <Button 
+                onClick={() => {
+                  setShowStartScreen(true);
+                  setIsTestActive(false);
+                  setShowCalibration(false);
+                  setIsTimeUp(false);
+                  setTimeRemaining(300); // Reset to 5 minutes
+                  setAnsweredQuestions([]);
+                  setTestResults([]);
+                  if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                  }
+                }}
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Back to Start
               </Button>
             </div>
           </motion.div>
@@ -264,7 +418,7 @@ export const TestInterface = () => {
       {isSidebarOpen && (
         <SessionSidebar 
           questionCount={answeredQuestions.length}
-          totalQuestions={totalQuestions}
+          totalQuestions={isSampleTest ? 10 : 10}
           metricsHistory={metricsHistory}
           isTestActive={isTestActive}
         />
@@ -296,6 +450,18 @@ export const TestInterface = () => {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-6">Adaptive Math Assessment</h1>
+            
+            {/* Timer for sample test */}
+            {isSampleTest && isTestActive && (
+              <div className="bg-card rounded-xl shadow-sm p-4 mb-6 border border-border">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-medium text-foreground">Time Remaining</h2>
+                  <span className={`text-xl font-bold ${timeRemaining <= 60 ? 'text-red-500' : 'text-primary'}`}>
+                    {formatTime(timeRemaining)}
+                  </span>
+                </div>
+              </div>
+            )}
             
             {/* BCI Metrics */}
             <div className="bg-card rounded-xl shadow-sm p-4 mb-6 border border-border">

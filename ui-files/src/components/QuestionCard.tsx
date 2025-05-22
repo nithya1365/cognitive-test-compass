@@ -4,62 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Question } from "@/services/dataService";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface QuestionCardProps {
   question: Question;
-  onAnswer: (isCorrect: boolean) => void;
+  onAnswer: (isCorrect: boolean, userAnswer: string) => void;
   onNext: () => void;
 }
 
 export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) => {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [textAnswer, setTextAnswer] = useState<string>('');
-  const [isAnswered, setIsAnswered] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState<string>('');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
 
-  const handleOptionSelect = (option: string) => {
-    if (isAnswered) return;
-    setSelectedOption(option);
-  };
-  
   const handleSubmit = () => {
-    if (isAnswered) return;
+    if (!selectedAnswer) return;
 
-    let isCorrect = false;
-    if (question.type === 'multiple-choice') {
-      if (!selectedOption) return; // Should not happen with disabled state
-      isCorrect = selectedOption === question.correctAnswer;
-    } else if (question.type === 'text-input') {
-       if (textAnswer.trim() === '') return; // Should not happen with disabled state
-      isCorrect = textAnswer.trim() === question.correctAnswer;
-    }
-    
-    setIsAnswered(true);
-    onAnswer(isCorrect);
+    const correct = selectedAnswer === question.correctAnswer;
+    setIsCorrect(correct);
+    setShowFeedback(true);
+    onAnswer(correct, selectedAnswer);
   };
 
   const handleNext = () => {
-    setSelectedOption(null);
-    setTextAnswer('');
-    setIsAnswered(false);
+    setSelectedAnswer('');
+    setShowFeedback(false);
     onNext();
-  };
-
-  const getOptionClass = (option: string) => {
-    if (!isAnswered) {
-      return selectedOption === option 
-        ? "border-primary bg-primary/10" 
-        : "border-border hover:border-primary/50 hover:bg-card/80";
-    }
-
-    if (option === question.correctAnswer) {
-      return "border-green-500 bg-green-500/10 text-green-400";
-    }
-
-    if (selectedOption === option && option !== question.correctAnswer) {
-      return "border-red-500 bg-red-500/10 text-red-400";
-    }
-
-    return "border-border opacity-60";
   };
 
   return (
@@ -79,54 +51,61 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
             <h2 className="text-xl font-semibold text-foreground mb-4">{question.text}</h2>
           </div>
           
-          <div className="space-y-3 mb-6">
-            {question.type === 'multiple-choice' ? (
-              question.options?.map((option, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleOptionSelect(option)}
-                  disabled={isAnswered}
-                  className={cn(
-                    "w-full py-4 px-5 rounded-xl text-left border-2 transition-all",
-                    "focus:outline-none focus:ring-2 focus:ring-primary/50",
-                    getOptionClass(option)
-                  )}
-                >
-                  <span className="text-base">{option}</span>
-                </button>
-              ))
-            ) : (
-              <input
-                type="text"
-                value={textAnswer}
-                onChange={(e) => setTextAnswer(e.target.value)}
-                disabled={isAnswered}
-                className="w-full py-4 px-5 rounded-xl border-2 border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground"
-                placeholder="Type your answer here"
-              />
-            )}
-          </div>
+          {question.type === 'multiple-choice' && question.options && (
+            <RadioGroup
+              value={selectedAnswer}
+              onValueChange={setSelectedAnswer}
+              className="space-y-4 mb-6"
+            >
+              {question.options.map((option, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <RadioGroupItem value={option} id={`option-${index}`} />
+                  <Label htmlFor={`option-${index}`}>{option}</Label>
+                </div>
+              ))}
+            </RadioGroup>
+          )}
+
+          {question.type === 'text-input' && (
+            <Input
+              type="text"
+              value={selectedAnswer}
+              onChange={(e) => setSelectedAnswer(e.target.value)}
+              placeholder="Enter your answer"
+              className="mb-6"
+            />
+          )}
           
-          {!isAnswered ? (
-            <div className="mt-6 flex justify-end">
-              <Button 
+          {showFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-4 rounded-lg mb-6 ${
+                isCorrect ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+              }`}
+            >
+              {isCorrect ? 'Correct!' : `Incorrect. The correct answer is: ${question.correctAnswer}`}
+            </motion.div>
+          )}
+          
+          <div className="mt-6 flex justify-end">
+            {!showFeedback ? (
+              <Button
                 onClick={handleSubmit}
-                disabled={question.type === 'multiple-choice' ? !selectedOption : textAnswer.trim() === ''}
-                className="px-6"
+                disabled={!selectedAnswer}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Submit Answer
               </Button>
-            </div>
-          ) : (
-            <div className="mt-6 flex justify-end">
-              <Button 
-                onClick={handleNext} 
-                className="px-6"
+            ) : (
+              <Button
+                onClick={handleNext}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Next Question
               </Button>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
     </motion.div>
