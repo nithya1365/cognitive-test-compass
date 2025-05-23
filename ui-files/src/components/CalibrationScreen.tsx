@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatTime } from '@/utils/timeUtils';
@@ -15,19 +14,32 @@ export const CalibrationScreen = ({ duration, onComplete }: CalibrationScreenPro
   const [isAnimating, setIsAnimating] = useState(true);
 
   useEffect(() => {
-    if (timeRemaining <= 0) {
-      onComplete();
-      return;
-    }
+    let intervalId: NodeJS.Timeout;
 
-    const timer = setTimeout(() => {
-      setTimeRemaining(prev => prev - 1);
-    }, 1000);
+    const startCountdown = () => {
+      intervalId = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev <= 1) {
+            clearInterval(intervalId);
+            onComplete();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    };
 
-    return () => clearTimeout(timer);
-  }, [timeRemaining, onComplete]);
+    startCountdown();
 
-  const progress = ((duration - timeRemaining) / duration) * 100;
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [onComplete]);
+
+  const progress = duration > 0 ? ((duration - timeRemaining) / duration) * 100 : 0;
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4">

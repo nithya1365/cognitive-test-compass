@@ -7,15 +7,18 @@ interface StartScreenProps {
 
 export const StartScreen = ({ onStart }: StartScreenProps) => {
   const handleStartSampleTest = async () => {
-    try {
-      const res = await fetch("http://localhost:5000/start_eeg");
-      const data = await res.json();
-      console.log("EEG started:", data);
-      onStart(true); // continue to test screen
-    } catch (error) {
-      console.error("Failed to start EEG:", error);
-      alert("Could not start EEG recording.");
-    }
+    // try {
+    //   const res = await fetch("http://localhost:5000/start_eeg");
+    //   const data = await res.json();
+    //   console.log("EEG started:", data);
+    //   onStart(true); // continue to test screen
+    // } catch (error) {
+    //   console.error("Failed to start EEG:", error);
+    //   alert("Could not start EEG recording.");
+    // }
+
+    // Temporarily bypassing EEG backend call
+    onStart(true); // continue to test screen
   };
 
   return (

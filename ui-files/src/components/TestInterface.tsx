@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import axios from 'axios';
+import { Box, Typography, Paper, Grid } from '@mui/material';
 
 import { BCIMetricsGauge } from './BCIMetricsGauge';
 import { CognitiveLoadIndicator } from './CognitiveLoadIndicator';
@@ -16,6 +18,13 @@ import { getSampleTestQuestions, getSampleQuestionByIndex } from '@/services/sam
 import { exportToCSV, TestResult } from '@/utils/exportUtils';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
+
+interface BCIReading {
+  timestamp: string;
+  alpha: number;
+  beta: number;
+  theta: number;
+}
 
 export const TestInterface = () => {
   const { 
@@ -47,6 +56,31 @@ export const TestInterface = () => {
   const [isTestComplete, setIsTestComplete] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [calibrationComplete, setCalibrationComplete] = useState(!isSampleTest);
+  const [readings, setReadings] = useState<BCIReading[]>([]);
+
+  // Add BCI data fetching
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
+        setReadings(response.data);
+      } catch (error) {
+        console.error('Error fetching BCI data:', error);
+      }
+    };
+
+    // Fetch data immediately
+    fetchData();
+
+    // Set up polling every 100ms
+    const intervalId = setInterval(fetchData, 100);
+
+    // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Get the latest reading (last in the array)
+  const latestReading = readings[readings.length - 1];
 
   // Initialize with questions
   useEffect(() => {
@@ -306,7 +340,7 @@ export const TestInterface = () => {
 
   // If calibration is active, show the calibration screen
   if (showCalibration && isSampleTest) {
-    return <CalibrationScreen duration={3} onComplete={handleCalibrationComplete} />;
+    return <CalibrationScreen duration={10} onComplete={handleCalibrationComplete} />;
   }
 
   // Completed state when all questions are answered or time is up
@@ -479,6 +513,34 @@ export const TestInterface = () => {
                 />
               </div>
             </div>
+          </div>
+          
+          {/* BCI Data Display */}
+          <div className="mb-8 bg-gray-800 rounded-lg p-6">
+            <h2 className="text-2xl font-semibold mb-4">BCI Metrics</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gray-700 rounded-lg p-4 text-center">
+                <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
+                <p className="text-3xl font-bold">
+                  {latestReading?.alpha.toFixed(2) || '0.00'}
+                </p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 text-center">
+                <h3 className="text-lg text-green-400 mb-2">Beta</h3>
+                <p className="text-3xl font-bold">
+                  {latestReading?.beta.toFixed(2) || '0.00'}
+                </p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 text-center">
+                <h3 className="text-lg text-purple-400 mb-2">Theta</h3>
+                <p className="text-3xl font-bold">
+                  {latestReading?.theta.toFixed(2) || '0.00'}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-400 mt-4">
+              Last Updated: {latestReading?.timestamp || 'No data'}
+            </p>
           </div>
           
           {/* Question Card */}
