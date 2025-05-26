@@ -41,8 +41,21 @@ def on_battery_changed(sensor, battery):
     print('Battery: {0}'.format(battery))
 
 def compute_apen(U, m=2, r=None):
-    # [your existing code]
-    pass
+    U = np.array(U)
+    N = len(U)
+    if r is None:
+        r = 0.2 * np.std(U)
+
+    def _phi(m):
+        x = np.array([U[i:i + m] for i in range(N - m + 1)])
+        C = []
+        for xi in x:
+            dist = np.max(np.abs(x - xi), axis=1)
+            C.append(np.sum(dist <=r) )
+        return np.sum(np.log(C)) / (N - m + 1)
+
+    return abs(_phi(m) - _phi(m + 1))
+    
 
 def on_signal_received(sensor, data):
     global latest, alpha_buffer, beta_buffer, theta_buffer, math, readings_history
@@ -74,16 +87,38 @@ def on_signal_received(sensor, data):
                 beta_buffer.pop(0)
                 theta_buffer.pop(0)
 
+            # Calculate APEN for each buffer
+            alpha_apen = compute_apen(alpha_buffer) if len(alpha_buffer) > 10 else 0
+            beta_apen = compute_apen(beta_buffer) if len(beta_buffer) > 10 else 0
+            theta_apen = compute_apen(theta_buffer) if len(theta_buffer) > 10 else 0
+
             # Set latest values
             latest["timestamp"] = datetime.now().isoformat()
             latest["alpha"] = spec.alpha
             latest["beta"] = spec.beta
             latest["theta"] = spec.theta
+            latest["alpha_apen"] = alpha_apen
+            latest["beta_apen"] = beta_apen
+            latest["theta_apen"] = theta_apen
 
             # Add to history
             readings_history.append(latest.copy())
             if len(readings_history) > 10:
                 readings_history.pop(0)
+
+            # Save to CSV
+            try:
+                with open('bci_calm.csv', 'a', newline='') as csvfile:
+                    fieldnames = ['timestamp', 'alpha', 'beta', 'theta', 'alpha_apen', 'beta_apen', 'theta_apen']
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    
+                    # Write header if file is empty
+                    if csvfile.tell() == 0:
+                        writer.writeheader()
+                    
+                    writer.writerow(latest)
+            except Exception as e:
+                print(f"Error writing to CSV: {e}")
 
 def on_resist_received(sensor, data):
     print("O1 resist is normal: {0}. Current O1 resist {1}".format(data.O1 < 2000000, data.O1))
