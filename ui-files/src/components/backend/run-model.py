@@ -53,7 +53,7 @@ def run_model():
             'confusion_matrix': os.path.join(backend_dir, 'confusion_matrix.png'),
             'graph_svm': os.path.join(backend_dir, 'graph_svm.png'),
             'model_output': os.path.join(backend_dir, 'model_output.csv'),
-            'svm_model': os.path.join(backend_dir, 'svm_model.pkl')
+            'trained_model': os.path.join(backend_dir, 'trained_model.pkl')
         }
         
         # Verify each file exists and has content
@@ -136,26 +136,10 @@ def get_graph():
 
 @app.route('/get-confusion-matrix')
 def get_confusion_matrix():
-    try:
-        cm_path = os.path.join(get_backend_dir(), 'confusion_matrix.png')
-        print(f"\n=== Serving Confusion Matrix ===")
-        print(f"Looking for confusion matrix at: {cm_path}")
-        
-        if os.path.exists(cm_path):
-            file_size = os.path.getsize(cm_path)
-            print(f"Found confusion matrix: {file_size} bytes")
-            return send_file(cm_path, mimetype='image/png')
-        else:
-            print("Confusion matrix not found!")
-            return jsonify({
-                'error': 'Confusion matrix not found',
-                'path': cm_path
-            }), 404
-    except Exception as e:
-        print(f"Error serving confusion matrix: {str(e)}")
-        return jsonify({
-            'error': f'Error serving confusion matrix: {str(e)}'
-        }), 500
+    cm_path = os.path.join(get_backend_dir(), 'confusion_matrix.png')
+    if os.path.exists(cm_path):
+        return send_file(cm_path, mimetype='image/png')
+    return jsonify({'error': 'Confusion matrix not found'}), 404
 
 @app.route('/get-graph-svm')
 def get_graph_svm():
