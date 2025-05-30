@@ -10,6 +10,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.metrics import classification_report, confusion_matrix
 import warnings
 import os
+import pickle
 warnings.filterwarnings('ignore')
 
 # Get the directory where this script is located
@@ -122,6 +123,14 @@ svm = SVC(kernel='rbf', C=1, gamma='scale')
 svm.fit(X_train, y_train)
 y_pred = svm.predict(X_test)
 
+# Save the trained model
+model_path = os.path.join(current_dir, 'trained_model.pkl')
+print(f"\n=== Saving Trained Model ===")
+print(f"Saving model to: {model_path}")
+with open(model_path, 'wb') as f:
+    pickle.dump(svm, f)
+print(f"Model saved successfully")
+
 # === Step 11: Evaluation ===
 print("\n=== Classification Report ===")
 print(classification_report(y_test, y_pred, target_names=['Low Load', 'High Load']))
@@ -129,27 +138,19 @@ print(classification_report(y_test, y_pred, target_names=['Low Load', 'High Load
 # === Generate and save confusion matrix ===
 print("\n=== Generating Confusion Matrix ===")
 cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-            xticklabels=['Low Load', 'High Load'], 
-            yticklabels=['Low Load', 'High Load'])
+plt.figure(figsize=(6, 5))
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Low', 'High'], yticklabels=['Low', 'High'])
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted')
 plt.ylabel('True')
 plt.tight_layout()
 
-# Save confusion matrix with explicit path
+# Save confusion matrix
 cm_path = os.path.join(current_dir, 'confusion_matrix.png')
 print(f"Saving confusion matrix to: {cm_path}")
 plt.savefig(cm_path, bbox_inches='tight', dpi=300)
 plt.close()
 print(f"Confusion matrix saved successfully")
-
-# Verify the confusion matrix was saved
-if os.path.exists(cm_path):
-    print(f"Confusion matrix file exists: {os.path.getsize(cm_path)} bytes")
-else:
-    print("WARNING: Confusion matrix file was not created!")
 
 # === Step 12: Cross-validation Accuracy ===
 skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
