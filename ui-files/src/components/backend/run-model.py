@@ -21,7 +21,7 @@ def run_model():
         print(f"Current working directory: {os.getcwd()}")
         
         # Check if CSV file exists
-        csv_path = os.path.join(backend_dir, 'model_output.csv')
+        csv_path = os.path.join(backend_dir, 'bci_calm.csv')
         print(f"\n=== Checking CSV File ===")
         print(f"Looking for CSV at: {csv_path}")
         if not os.path.exists(csv_path):

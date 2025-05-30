@@ -1,66 +1,28 @@
-import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import axios from 'axios';
+import { BCIMetrics } from '@/services/dataService';
 
-interface BCIReading {
-  timestamp: string;
-  alpha: number;
-  beta: number;
-  theta: number;
+interface MetricsChartProps {
+  data: BCIMetrics[];
 }
 
-interface ChartDataPoint {
-  timestamp: string;
-  alpha: number;
-  beta: number;
-  theta: number;
-}
-
-export const MetricsChart = () => {
-  const [data, setData] = useState<ChartDataPoint[]>([]);
-  const MAX_DATA_POINTS = 50; // Keep last 50 readings
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
-        const newData = response.data.map(reading => ({
-          timestamp: new Date(reading.timestamp).toLocaleTimeString(),
-          alpha: reading.alpha,
-          beta: reading.beta,
-          theta: reading.theta
-        }));
-
-        setData(prevData => {
-          const updatedData = [...prevData, ...newData];
-          // Keep only the last MAX_DATA_POINTS
-          return updatedData.slice(-MAX_DATA_POINTS);
-        });
-      } catch (error) {
-        console.error('Error fetching BCI data:', error);
-      }
-    };
-
-    // Fetch data immediately
-    fetchData();
-
-    // Set up polling every 100ms
-    const intervalId = setInterval(fetchData, 100);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []);
+export const MetricsChart = ({ data }: MetricsChartProps) => {
+  const chartData = data.map((metric, index) => ({
+    time: index,
+    alpha: metric.alpha,
+    beta: metric.beta,
+    theta: metric.theta
+  }));
 
   return (
     <div className="h-48 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          data={data}
+          data={chartData}
           margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#2d3747" />
           <XAxis 
-            dataKey="timestamp" 
+            dataKey="time" 
             tick={{ fontSize: 10, fill: '#a0aec0' }}
             axisLine={{ stroke: '#4a5568' }}
             label={{ value: 'Time', position: 'insideBottomRight', offset: -5, fill: '#a0aec0' }} 
