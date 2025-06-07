@@ -3,13 +3,26 @@ import { motion } from 'framer-motion';
 import { formatTime } from '@/utils/timeUtils';
 import { Progress } from './ui/progress';
 import { Eye } from 'lucide-react';
+import { BCIMetrics } from '@/services/dataService'; // Assuming BCIMetrics is the correct type for BCIReading
+
+// Define BCIReading interface locally or import it if defined elsewhere
+interface BCIReading {
+  timestamp: string;
+  alpha: number;
+  beta: number;
+  theta: number;
+}
 
 interface CalibrationScreenProps {
   duration: number;
   onComplete: () => void;
+  latestReading: BCIReading | undefined; // Add prop for latest BCI reading
 }
+ 
+// edit 
+export const CalibrationScreen = ({ duration, onComplete, latestReading }: CalibrationScreenProps) => {
+// export const CalibrationScreen = ({ duration, onComplete }: CalibrationScreenProps) => {
 
-export const CalibrationScreen = ({ duration, onComplete }: CalibrationScreenProps) => {
   const [timeRemaining, setTimeRemaining] = useState(duration);
   const [isAnimating, setIsAnimating] = useState(true);
 
@@ -36,7 +49,7 @@ export const CalibrationScreen = ({ duration, onComplete }: CalibrationScreenPro
         clearInterval(intervalId);
       }
     };
-  }, [onComplete]);
+  }, [onComplete]); // Dependency array ensures effect runs when onComplete changes
 
   const progress = duration > 0 ? ((duration - timeRemaining) / duration) * 100 : 0;
 
@@ -108,6 +121,28 @@ export const CalibrationScreen = ({ duration, onComplete }: CalibrationScreenPro
           <p className="text-sm text-muted-foreground">
             {formatTime(timeRemaining)} remaining
           </p>
+
+          {/* BCI Data Display (Real-time values from polling) */}
+          {latestReading && (
+            <div className="mt-8 bg-gray-800 rounded-lg p-4">
+              <h3 className="text-xl font-semibold mb-3 text-center">Real-time Metrics</h3>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-lg text-blue-400 font-medium">Alpha</p>
+                  <p className="text-2xl font-bold">{latestReading.alpha.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-lg text-green-400 font-medium">Beta</p>
+                  <p className="text-2xl font-bold">{latestReading.beta.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-lg text-purple-400 font-medium">Theta</p>
+                  <p className="text-2xl font-bold">{latestReading.theta.toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </motion.div>
     </div>

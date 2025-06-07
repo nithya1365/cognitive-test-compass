@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import StratifiedKFold, train_test_split, cross_val_score
-from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import classification_report, confusion_matrix
@@ -60,10 +59,14 @@ for apen_col in ['alpha_apen', 'beta_apen', 'theta_apen']:
 
 # === Labeling Based on Alpha CLI (Median Split) ===
 median_alpha_cli = segmented['CI_Alpha'].median()
+print("median", median_alpha_cli)
 segmented['label'] = segmented['CI_Alpha'].apply(lambda x: 1 if x > median_alpha_cli else 0)
 
 # === Prepare Features and Labels ===
-feature_cols = ['CI_Alpha'] + apen_features
+if 'alpha_apen' not in segmented.columns:
+    raise ValueError("The 'alpha_apen' column is not available in the dataset.")
+
+feature_cols = ['CI_Alpha']
 X = segmented[feature_cols].copy()
 y = segmented['label']
 
@@ -71,9 +74,8 @@ y = segmented['label']
 X.replace([np.inf, -np.inf], np.nan, inplace=True)
 X = SimpleImputer(strategy='mean').fit_transform(X)
 
-# === Normalize Features ===
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+# === No Normalization ===
+X_scaled = X  # Linear SVM does not require normalization for single-feature CLI interpretation
 
 # === Plot Alpha CLI ===
 plt.figure(figsize=(12, 5))
@@ -93,12 +95,12 @@ plt.close()
 # === Train/Test Split ===
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, stratify=y, test_size=0.3, random_state=42)
 
-# === Train SVM ===
-svm = SVC(kernel='rbf', C=1, gamma='scale')
+# === Train SVM (Linear Kernel) ===
+svm = SVC(kernel='linear', C=1)
 svm.fit(X_train, y_train)
 y_pred = svm.predict(X_test)
 
-# Save Model
+# === Save Model ===
 with open(os.path.join(current_dir, 'trained_model.pkl'), 'wb') as f:
     pickle.dump(svm, f)
 
@@ -144,7 +146,7 @@ plt.tight_layout()
 plt.savefig(os.path.join(current_dir, 'graph_svm.png'), dpi=300)
 plt.close()
 
-# Save Final CSV
+# === Save Final CSV ===
 merged_data.to_csv(os.path.join(current_dir, "model_output.csv"), index=False)
 
 # === Confirmation ===

@@ -11,27 +11,22 @@ import { Label } from "@/components/ui/label";
 interface QuestionCardProps {
   question: Question;
   onAnswer: (isCorrect: boolean, userAnswer: string) => void;
-  onNext: () => void;
 }
 
-export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) => {
+export const QuestionCard = ({ question, onAnswer }: QuestionCardProps) => {
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    if (!selectedAnswer) return;
+  const handleSubmit = async () => {
+    if (!selectedAnswer || isSubmitting) return;
 
+    setIsSubmitting(true);
     const correct = selectedAnswer === question.correctAnswer;
     setIsCorrect(correct);
     setShowFeedback(true);
     onAnswer(correct, selectedAnswer);
-  };
-
-  const handleNext = () => {
-    setSelectedAnswer('');
-    setShowFeedback(false);
-    onNext();
   };
 
   return (
@@ -56,6 +51,7 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
               value={selectedAnswer}
               onValueChange={setSelectedAnswer}
               className="space-y-4 mb-6"
+              disabled={showFeedback}
             >
               {question.options.map((option, index) => (
                 <div key={index} className="flex items-center space-x-2">
@@ -73,6 +69,7 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
               onChange={(e) => setSelectedAnswer(e.target.value)}
               placeholder="Enter your answer"
               className="mb-6"
+              disabled={showFeedback}
             />
           )}
           
@@ -89,20 +86,13 @@ export const QuestionCard = ({ question, onAnswer, onNext }: QuestionCardProps) 
           )}
           
           <div className="mt-6 flex justify-end">
-            {!showFeedback ? (
+            {!showFeedback && (
               <Button
                 onClick={handleSubmit}
-                disabled={!selectedAnswer}
+                disabled={!selectedAnswer || isSubmitting}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Submit Answer
-              </Button>
-            ) : (
-              <Button
-                onClick={handleNext}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Next Question
               </Button>
             )}
           </div>

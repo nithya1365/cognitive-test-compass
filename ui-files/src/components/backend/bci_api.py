@@ -15,10 +15,10 @@ CORS(app)  # allow React at localhost:3000 to fetch
 
 # Global storage for latest data
 latest = {
-    "TIMESTAMP": None,
-    "ALPHA": 0.0,
-    "BETA":  0.0,
-    "THETA": 0.0
+    "timestamp": None,
+    "alpha": 0.0,
+    "beta":  0.0,
+    "theta": 0.0
 }
 
 # Store last 10 readings
@@ -93,13 +93,13 @@ def on_signal_received(sensor, data):
             theta_apen = compute_apen(theta_buffer) if len(theta_buffer) > 10 else 0
 
             # Set latest values
-            latest["TIMESTAMP"] = datetime.now().isoformat()
-            latest["ALPHA"] = spec.alpha
-            latest["BETA"] = spec.beta
-            latest["THETA"] = spec.theta
-            latest["ALPHA_APEN"] = alpha_apen
-            latest["BETA_APEN"] = beta_apen
-            latest["THETA_APEN"] = theta_apen
+            latest["timestamp"] = datetime.now().isoformat()
+            latest["alpha"] = spec.alpha
+            latest["beta"] = spec.beta
+            latest["theta"] = spec.theta
+            latest["alpha_apen"] = alpha_apen
+            latest["beta_apen"] = beta_apen
+            latest["theta_apen"] = theta_apen
 
             # Add to history
             readings_history.append(latest.copy())
@@ -108,7 +108,7 @@ def on_signal_received(sensor, data):
 
             # Save to CSV
             try:
-                with open('bci_calm.csv', 'a', newline='') as csvfile:
+                with open('bci_model.csv', 'a', newline='') as csvfile:
                     fieldnames = ['timestamp', 'alpha', 'beta', 'theta', 'alpha_apen', 'beta_apen', 'theta_apen']
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                     

@@ -4,53 +4,53 @@ import { Question, DifficultyLevel } from './dataService';
 const easyQuestionsPool: Question[] = [
   {
     id: 101,
-    text: "What is 15 + 27?",
+    text: "What is 18 + 29?",
     type: "multiple-choice",
-    options: ["42", "32", "52", "22"],
-    correctAnswer: "42",
+    options: ["47", "37", "57", "27"],
+    correctAnswer: "47",
     difficulty: "easy"
   },
   {
     id: 102,
-    text: "What is 8 × 7?",
+    text: "What is 9 × 6?",
     type: "multiple-choice",
-    options: ["56", "54", "58", "52"],
-    correctAnswer: "56",
+    options: ["54", "52", "56", "58"],
+    correctAnswer: "54",
     difficulty: "easy"
   },
   {
     id: 103,
-    text: "What is 144 ÷ 12?",
+    text: "What is 169 ÷ 13?",
     type: "multiple-choice",
-    options: ["12", "14", "10", "16"],
-    correctAnswer: "12",
+    options: ["13", "15", "11", "17"],
+    correctAnswer: "13",
     difficulty: "easy"
   },
   {
     id: 104,
-    text: "What is 25% of 200?",
+    text: "What is 30% of 150?",
     type: "text-input",
-    correctAnswer: "50",
+    correctAnswer: "45",
     difficulty: "easy"
   },
   {
     id: 105,
-    text: "What is the square root of 81?",
+    text: "What is the square root of 64?",
     type: "multiple-choice",
-    options: ["9", "8", "7", "10"],
-    correctAnswer: "9",
+    options: ["8", "7", "9", "10"],
+    correctAnswer: "8",
     difficulty: "easy"
   },
   {
     id: 106,
-    text: "What is 37 × 9?",
+    text: "What is 42 × 8?",
     type: "text-input",
-    correctAnswer: "333",
+    correctAnswer: "336",
     difficulty: "easy"
   },
   {
     id: 107,
-    text: "What is 3² + 4²?",
+    text: "What is 4² + 3²?",
     type: "multiple-choice",
     options: ["25", "24", "23", "22"],
     correctAnswer: "25",
@@ -58,22 +58,22 @@ const easyQuestionsPool: Question[] = [
   },
   {
     id: 108,
-    text: "What is 1000 - 567?",
+    text: "What is 1000 - 678?",
     type: "text-input",
-    correctAnswer: "433",
+    correctAnswer: "322",
     difficulty: "easy"
   },
   {
     id: 109,
-    text: "What is 12 × 12?",
+    text: "What is 13 × 13?",
     type: "multiple-choice",
-    options: ["144", "124", "134", "154"],
-    correctAnswer: "144",
+    options: ["169", "149", "159", "179"],
+    correctAnswer: "169",
     difficulty: "easy"
   },
   {
     id: 110,
-    text: "What is 75% of 80?",
+    text: "What is 80% of 75?",
     type: "text-input",
     correctAnswer: "60",
     difficulty: "easy"
@@ -84,112 +84,112 @@ const easyQuestionsPool: Question[] = [
 const hardQuestionsPool: Question[] = [
   {
     id: 201,
-    text: "Evaluate: ∫ sin²(x) dx",
+    text: "Evaluate: ∫ cos²(x) dx",
     type: "text-input",
-    correctAnswer: "x/2 - sin(2x)/4 + C",
+    correctAnswer: "x/2 + sin(2x)/4 + C",
     difficulty: "hard"
   },
   {
     id: 202,
-    text: "Solve: d²y/dx² - 2dy/dx + y = 0",
+    text: "Solve: d²y/dx² + 2dy/dx + y = 0",
     type: "text-input",
-    correctAnswer: "y = c₁eˣ + c₂xeˣ",
+    correctAnswer: "y = c₁e^(-x) + c₂xe^(-x)",
     difficulty: "hard"
   },
   {
     id: 203,
-    text: "Evaluate the limit: limₓ→∞ (ln x)/x",
+    text: "Evaluate the limit: limₓ→∞ (x²)/e^x",
     type: "text-input",
     correctAnswer: "0",
     difficulty: "hard"
   },
   {
     id: 204,
-    text: "What are the eigenvalues of [[3, 1,2], [0, 2, 3],[1, 5, 6]]?",
+    text: "What are the eigenvalues of [[2, 1, 1], [1, 3, 2],[1, 2, 3]]?",
     type: "text-input",
-    correctAnswer: "1,4,6",
+    correctAnswer: "1,3,4",
     difficulty: "hard"
   },
   {
     id: 205,
-    text: "Find the sum: ∑ (1/n³) from n=1 to ∞",
+    text: "Find the sum: ∑ (1/n²) from n=1 to ∞",
     type: "text-input",
-    correctAnswer: "1.202",
+    correctAnswer: "1.645",
     difficulty: "hard"
   },
   {
     id: 206,
-    text: "Evaluate: ∫ e^(-x²) dx from -∞ to ∞",
+    text: "Evaluate: ∫ e^(-x²/2) dx from -∞ to ∞",
     type: "text-input",
-    correctAnswer: "√π",
+    correctAnswer: "√(2π)",
     difficulty: "hard"
   },
   {
     id: 207,
-    text: "Use L'Hôpital's Rule: limₓ→0 (sin x)/x",
+    text: "Use L'Hôpital's Rule: limₓ→0 (tan x)/x",
     type: "text-input",
     correctAnswer: "1",
     difficulty: "hard"
   },
   {
     id: 208,
-    text: "Find the modulus of (7 - 24i)",
+    text: "Find the modulus of (5 - 12i)",
     type: "text-input",
-    correctAnswer: "25",
+    correctAnswer: "13",
     difficulty: "hard"
   },
   {
     id: 209,
-    text: "If A = {x ∈ z | x² < 20}, B = {x ∈ z | x is odd}, find A ∩ B",
+    text: "If A = {x ∈ z | x² < 25}, B = {x ∈ z | x is even}, find A ∩ B",
     type: "text-input",
-    correctAnswer: "{-3,-1,1,3}",
+    correctAnswer: "{-4,-2,0,2,4}",
     difficulty: "hard"
   },
   {
     id: 210,
-    text: "Evaluate: ∫ x·e^x dx",
+    text: "Evaluate: ∫ x·sin(x) dx",
     type: "text-input",
-    correctAnswer: "x·e^x - e^x + C",
+    correctAnswer: "-x·cos(x) + sin(x) + C",
     difficulty: "hard"
   },
   {
     id: 211,
-    text: "Find det of matrix [[1,2,3],[4,5,6],[7,8,9]]",
+    text: "Find det of matrix [[2,3,4],[5,6,7],[8,9,10]]",
     type: "text-input",
     correctAnswer: "0",
     difficulty: "hard"
   },
   {
     id: 212,
-    text: "Find inverse of [[2,1,0],[1,1,1],[0,1,2]]",
+    text: "Find inverse of [[3,1,0],[1,2,1],[0,1,3]]",
     type: "text-input",
-    correctAnswer: "[[1,-2,1],[-2,4,-2],[1,-2,1]]",
+    correctAnswer: "[[5/8,-3/8,1/8],[-3/8,9/8,-3/8],[1/8,-3/8,5/8]]",
     difficulty: "hard"
   },
   {
     id: 213,
-    text: "Evaluate: 421 x 317",
+    text: "Evaluate: 523 × 419",
     type: "text-input",
-    correctAnswer: "133457",
+    correctAnswer: "219137",
     difficulty: "hard"
   },
   {
     id: 214,
-    text: "Solve: ∫ (ln x)/x dx",
+    text: "Solve: ∫ (sin x)/x dx",
     type: "text-input",
-    correctAnswer: "(ln x)²/2 + C",
+    correctAnswer: "Si(x) + C",
     difficulty: "hard"
   },
   {
     id: 215,
-    text: "Evaluate: limₓ→0 (1 - cos x)/x²",
+    text: "Evaluate: limₓ→0 (sin² x)/x²",
     type: "text-input",
-    correctAnswer: "1/2",
+    correctAnswer: "1",
     difficulty: "hard"
   },
   {
     id: 216,
-    text: "Calculate rref of [[1, 2.5, 3.5],[1.3, 2.4, 5.7], [4.5, 2.5, 3.7]]",
+    text: "Calculate rref of [[2, 3.5, 4.5],[2.3, 3.4, 6.7], [5.5, 3.5, 4.7]]",
     type: "text-input",
     correctAnswer: "[[1,0,0],[0,1,0],[0,0,1]]",
     difficulty: "hard"

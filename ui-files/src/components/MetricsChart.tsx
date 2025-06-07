@@ -1,75 +1,56 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
 import { BCIMetrics } from '@/services/dataService';
+import { BCIMetricsGauge } from './BCIMetricsGauge';
 
 interface MetricsChartProps {
   data: BCIMetrics[];
 }
 
 export const MetricsChart = ({ data }: MetricsChartProps) => {
-  const chartData = data.map((metric, index) => ({
-    time: index,
-    alpha: metric.alpha,
-    beta: metric.beta,
-    theta: metric.theta
-  }));
+  // Get the latest metrics from the data array
+  const latestMetrics = data[data.length - 1] || { alpha: 0, beta: 0, theta: 0 };
 
   return (
-    <div className="h-48 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart
-          data={chartData}
-          margin={{ top: 5, right: 5, left: 0, bottom: 5 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#2d3747" />
-          <XAxis 
-            dataKey="time" 
-            tick={{ fontSize: 10, fill: '#a0aec0' }}
-            axisLine={{ stroke: '#4a5568' }}
-            label={{ value: 'Time', position: 'insideBottomRight', offset: -5, fill: '#a0aec0' }} 
+    <div className="space-y-4 w-full">
+      <div className="flex flex-col items-center">
+        <div className="text-sm font-medium mb-1 text-muted-foreground">Alpha</div>
+        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full rounded-full bg-[#9b87f5]"
+            initial={{ width: 0 }}
+            animate={{ width: `${latestMetrics.alpha}%` }}
+            transition={{ duration: 0.5 }}
           />
-          <YAxis 
-            domain={[0, 100]} 
-            tick={{ fontSize: 10, fill: '#a0aec0' }}
-            axisLine={{ stroke: '#4a5568' }}
+        </div>
+        <div className="text-xs mt-1 text-muted-foreground">{Math.round(latestMetrics.alpha)}%</div>
+      </div>
+
+      <div className="flex flex-col items-center">
+        <div className="text-sm font-medium mb-1 text-muted-foreground">Beta</div>
+        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full rounded-full bg-[#33C3F0]"
+            initial={{ width: 0 }}
+            animate={{ width: `${latestMetrics.beta}%` }}
+            transition={{ duration: 0.5 }}
           />
-          <Tooltip 
-            contentStyle={{ 
-              backgroundColor: 'hsl(222 47% 14%)', 
-              borderRadius: '8px', 
-              border: '1px solid hsl(217 32% 17%)',
-              color: '#e2e8f0',
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)' 
-            }} 
+        </div>
+        <div className="text-xs mt-1 text-muted-foreground">{Math.round(latestMetrics.beta)}%</div>
+      </div>
+
+      <div className="flex flex-col items-center">
+        <div className="text-sm font-medium mb-1 text-muted-foreground">Theta</div>
+        <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full rounded-full bg-[#FDE1D3]"
+            initial={{ width: 0 }}
+            animate={{ width: `${latestMetrics.theta}%` }}
+            transition={{ duration: 0.5 }}
           />
-          <Line 
-            type="monotone" 
-            dataKey="alpha" 
-            name="Alpha" 
-            stroke="#9b87f5" 
-            strokeWidth={2} 
-            dot={false} 
-            activeDot={{ r: 4 }} 
-          />
-          <Line 
-            type="monotone" 
-            dataKey="beta" 
-            name="Beta" 
-            stroke="#33C3F0" 
-            strokeWidth={2} 
-            dot={false} 
-            activeDot={{ r: 4 }} 
-          />
-          <Line 
-            type="monotone" 
-            dataKey="theta" 
-            name="Theta" 
-            stroke="#FDE1D3" 
-            strokeWidth={2} 
-            dot={false} 
-            activeDot={{ r: 4 }} 
-          />
-        </LineChart>
-      </ResponsiveContainer>
+        </div>
+        <div className="text-xs mt-1 text-muted-foreground">{Math.round(latestMetrics.theta)}%</div>
+      </div>
     </div>
   );
 };

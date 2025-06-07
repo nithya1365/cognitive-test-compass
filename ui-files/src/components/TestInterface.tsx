@@ -12,13 +12,15 @@ import { StartScreen } from './StartScreen';
 import { 
   useDataService, 
   DifficultyLevel, 
-  Question
+  Question,
+  BCIMetrics // Import BCIMetrics type
 } from '@/services/dataService';
 import { getSampleTestQuestions, getSampleQuestionByIndex } from '@/services/sampleTestService';
 import { exportToCSV, TestResult } from '@/utils/exportUtils';
 import { Button } from './ui/button';
 import { Download } from 'lucide-react';
 
+// Define BCIReading interface locally or import it if defined elsewhere
 interface BCIReading {
   timestamp: string;
   alpha: number;
@@ -49,35 +51,43 @@ export const TestInterface = () => {
   const [timeRemaining, setTimeRemaining] = useState<number>(480); // 8 minutes in seconds
   const [isTimeUp, setIsTimeUp] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<'calibration' | 'easy' | 'hard'>(
-    isSampleTest ? 'calibration' : 'easy'
-  );
+  const [currentPhase, setCurrentPhase] = useState<'calibration' | 'easy' | 'hard'>('easy');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isTestComplete, setIsTestComplete] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [calibrationComplete, setCalibrationComplete] = useState(!isSampleTest);
   const [readings, setReadings] = useState<BCIReading[]>([]);
 
-  // Add BCI data fetching
+  // Add BCI data fetching - runs when test is active OR calibration is showing
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
-        setReadings(response.data);
-      } catch (error) {
-        console.error('Error fetching BCI data:', error);
+    let intervalId: NodeJS.Timeout | null = null;
+    // Fetch data if test is active OR calibration is showing
+    if (isTestActive && !showCalibration) {
+      console.log("hello this running")
+      const fetchData = async () => {
+        try {
+          console.log("this is try")
+          const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
+          setReadings(response.data);
+        } catch (error) {
+          console.error('Error fetching BCI data:', error);
+        }
+      };
+
+      // Fetch data immediately on state change
+      fetchData();
+
+      // Set up polling every 100ms
+      intervalId = setInterval(fetchData, 100);
+    }
+
+    // Cleanup interval on component unmount or when conditions change
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
       }
     };
-
-    // Fetch data immediately
-    fetchData();
-
-    // Set up polling every 100ms
-    const intervalId = setInterval(fetchData, 100);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []);
+  }, [isTestActive, showCalibration]); // Effect depends on these states
 
   // Get the latest reading (last in the array)
   const latestReading = readings[readings.length - 1];
@@ -105,6 +115,8 @@ export const TestInterface = () => {
             setIsTimeUp(true);
             setIsTestActive(false);
             setCurrentQuestion(null);
+            setIsTestComplete(true);
+            setShowResults(true); // Assuming you want to show results when test is complete
             return 0;
           }
           return prev - 1;
@@ -215,6 +227,8 @@ export const TestInterface = () => {
       if (answeredQuestions.length + 1 >= 15) {
         setCurrentQuestion(null);
         setIsTestActive(false);
+        setIsTestComplete(true);
+        setShowResults(true); // Assuming you want to show results when test is complete
         return;
       }
     } else {
@@ -222,6 +236,8 @@ export const TestInterface = () => {
       if (answeredQuestions.length + 1 >= 10) {
         setCurrentQuestion(null);
         setIsTestActive(false);
+        setIsTestComplete(true);
+        setShowResults(true); // Assuming you want to show results when test is complete
         return;
       }
     }
@@ -248,85 +264,40 @@ export const TestInterface = () => {
     } else {
       setCurrentQuestion(null);
       setIsTestActive(false);
+      setIsTestComplete(true);
+      setShowResults(true); // Assuming you want to show results when test is complete
     }
   };
 
-  // Helper function to find next question
+  // Find the next question based on difficulty and answered questions
   const findNextQuestion = () => {
-    if (!currentQuestion) return null;
-
-    // Get all questions for current difficulty
-    const currentDifficultyQuestions = getQuestionsByDifficulty(currentDifficulty);
+    const availableQuestions = questionPool.filter(q => !answeredQuestions.includes(q.id));
     
-    // Find next available question in current difficulty
-    const nextQuestion = currentDifficultyQuestions.find(q => 
-      !answeredQuestions.includes(q.id) && q.id !== currentQuestion.id
-    );
+    if (availableQuestions.length > 0) {
+      // For full test, adapt difficulty based on cognitive load
+      let targetDifficulty = currentDifficulty;
 
-    if (nextQuestion) {
-      return nextQuestion;
-    }
+      // This cognitive load logic is now handled in handleAnswerSubmitted, 
+      // so we just need to find a question of the currentDifficulty
+      const questionsOfCurrentDifficulty = availableQuestions.filter(q => q.difficulty === targetDifficulty);
 
-    // If no more questions in current difficulty, try other difficulties
-    if (currentDifficulty === 'easy') {
-      const mediumQuestions = getQuestionsByDifficulty('medium');
-      return mediumQuestions.find(q => !answeredQuestions.includes(q.id));
-    } else if (currentDifficulty === 'medium') {
-      const hardQuestions = getQuestionsByDifficulty('hard');
-      const nextHard = hardQuestions.find(q => !answeredQuestions.includes(q.id));
-      if (nextHard) {
-        setCurrentDifficulty('hard');
-        return nextHard;
-      }
-      const easyQuestions = getQuestionsByDifficulty('easy');
-      return easyQuestions.find(q => !answeredQuestions.includes(q.id));
-    } else {
-      const mediumQuestions = getQuestionsByDifficulty('medium');
-      const nextMedium = mediumQuestions.find(q => !answeredQuestions.includes(q.id));
-      if (nextMedium) {
-        setCurrentDifficulty('medium');
-        return nextMedium;
-      }
-      const easyQuestions = getQuestionsByDifficulty('easy');
-      return easyQuestions.find(q => !answeredQuestions.includes(q.id));
-    }
-  };
-
-  // Handle exporting test results
-  const handleExportResults = () => {
-    if (testResults.length > 0) {
-      exportToCSV(testResults);
-    }
-  };
-
-  // Get next question
-  const handleNextQuestion = () => {
-    if (!currentQuestion) return;
-    
-    setAnsweredQuestions(prev => [...prev, currentQuestion.id]);
-    
-    if (isSampleTest) {
-      const nextIndex = answeredQuestions.length + 1;
-      if (nextIndex < 15) { // Changed from 14 to 15 questions
-        const nextQuestion = getSampleQuestionByIndex(nextIndex);
-        if (nextQuestion) {
-          setCurrentQuestion(nextQuestion);
-          setQuestionStartTime(Date.now());
-        } else {
-          setCurrentQuestion(null);
-          setIsTestActive(false);
-        }
+      if (questionsOfCurrentDifficulty.length > 0) {
+        // For simplicity, just pick the first available question of the target difficulty
+        return questionsOfCurrentDifficulty[0];
       } else {
-        setCurrentQuestion(null);
-        setIsTestActive(false);
+        // If no questions of the target difficulty are available, 
+        // fall back to any available question (this might need refinement)
+        console.warn(`No questions of difficulty ${targetDifficulty} available. Picking any available question.`);
+        return availableQuestions[0];
       }
     } else {
-      // Original logic for full test
-      const availableQuestions = questionPool.filter(q => !answeredQuestions.includes(q.id));
-      if (availableQuestions.length > 0) {
-        setCurrentQuestion(availableQuestions[0]);
-      }
+      return null; // No more questions
     }
+  };
+
+  // Handle export results button click
+  const handleExportResults = () => {
+    exportToCSV(testResults);
   };
 
   const totalQuestions = getQuestionsByDifficulty('easy').length + 
@@ -340,7 +311,7 @@ export const TestInterface = () => {
 
   // If calibration is active, show the calibration screen
   if (showCalibration && isSampleTest) {
-    return <CalibrationScreen duration={10} onComplete={handleCalibrationComplete} />;
+    return <CalibrationScreen duration={60} onComplete={handleCalibrationComplete} latestReading={latestReading} />;
   }
 
   // Completed state when all questions are answered or time is up
@@ -550,7 +521,6 @@ export const TestInterface = () => {
                 key={currentQuestion.id}
                 question={currentQuestion} 
                 onAnswer={handleAnswerSubmitted}
-                onNext={handleNextQuestion}
               />
             )}
           </AnimatePresence>
