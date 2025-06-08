@@ -28,7 +28,7 @@ interface BCIReading {
   theta: number;
 }
 
-// Add recording helper functions
+// Helper: Start/stop recording and fetch CSV from backend
 const startRecording = async () => {
   try {
     await axios.post('http://localhost:6000/start_recording');
@@ -36,7 +36,6 @@ const startRecording = async () => {
     console.error('Failed to start recording:', e);
   }
 };
-
 const stopRecording = async () => {
   try {
     await axios.post('http://localhost:6000/stop_recording');
@@ -44,83 +43,25 @@ const stopRecording = async () => {
     console.error('Failed to stop recording:', e);
   }
 };
-
 const fetchPredictionCSV = async (): Promise<number[]> => {
   try {
-    console.log('=== Fetching Prediction CSV ===');
-    console.log('Attempting to fetch from: http://127.0.0.1:6000/latest_prediction');
-    
-    const resp = await axios.get('http://127.0.0.1:6000/latest_prediction', {
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache'
-      }
-    });
-    
-    if (!resp.data) {
-      console.error('No data received from predictions endpoint');
-      return [];
-    }
-    
-    console.log('Raw predictions response:', resp.data);
-    
-    // If the response is an array, use it directly
-    if (Array.isArray(resp.data)) {
-      const predictions = resp.data.filter((v: number) => v === 0 || v === 1);
-      console.log('Processed predictions:', predictions);
-      return predictions;
-    }
-    
-    // If the response is an object with a predictions field
-    if (resp.data.predictions) {
-      const predictions = resp.data.predictions.filter((v: number) => v === 0 || v === 1);
-      console.log('Processed predictions:', predictions);
-      return predictions;
-    }
-    
-    console.error('Unexpected response format:', resp.data);
-    return [];
+    // The backend CSV is at ui-files/src/components/backend/realtime_predictions.csv
+    // We'll expose a new endpoint to get the CSV as JSON (or fetch the file directly if served)
+    // For now, fetch as text and parse
+    const resp = await axios.get('http://localhost:6000/realtime_predictions.csv');
+    const lines = resp.data.split('\n').filter((l: string) => l.trim().length > 0);
+    if (lines.length < 2) return [];
+    const header = lines[0].split(',');
+    const predIdx = header.indexOf('prediction');
+    if (predIdx === -1) return [];
+    return lines.slice(1).map((line: string) => {
+      const cols = line.split(',');
+      return parseInt(cols[predIdx], 10);
+    }).filter((v: number) => v === 0 || v === 1);
   } catch (e) {
-    console.error('Failed to fetch predictions:', e);
-    if (axios.isAxiosError(e)) {
-      console.error('Axios error details:', {
-        status: e.response?.status,
-        statusText: e.response?.statusText,
-        data: e.response?.data
-      });
-    }
+    console.error('Failed to fetch prediction CSV:', e);
     return [];
   }
-};
-
-// Update the cognitive load determination to handle empty predictions better
-const determineCognitiveLoad = (predictions: number[]): 'Low' | 'Medium' | 'High' => {
-  console.log('=== Determining Cognitive Load ===');
-  console.log('Input predictions:', predictions);
-  
-  if (!predictions || predictions.length === 0) {
-    console.log('No predictions available, using default Medium load');
-    return 'Medium';
-  }
-  
-  const ones = predictions.filter(v => v === 1).length;
-  const zeros = predictions.filter(v => v === 0).length;
-  const total = predictions.length;
-  
-  console.log('Ones:', ones);
-  console.log('Zeros:', zeros);
-  console.log('Total:', total);
-  
-  const highLoadRatio = ones / total;
-  console.log('High load ratio:', highLoadRatio);
-  
-  let result: 'Low' | 'Medium' | 'High';
-  if (highLoadRatio >= 0.7) result = 'High';
-  else if (highLoadRatio <= 0.3) result = 'Low';
-  else result = 'Medium';
-  
-  console.log('Determined cognitive load:', result);
-  return result;
 };
 
 export const TestInterface = () => {
@@ -152,19 +93,17 @@ export const TestInterface = () => {
   const [showResults, setShowResults] = useState(false);
   const [calibrationComplete, setCalibrationComplete] = useState(!isSampleTest);
   const [readings, setReadings] = useState<BCIReading[]>([]);
-  const [cognitiveLoad, setCognitiveLoad] = useState<'Low' | 'Medium' | 'High'>('Medium');
 
   // Add BCI data fetching - runs when test is active OR calibration is showing
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     // Fetch data if test is active OR calibration is showing
     if (isTestActive && !showCalibration) {
-      console.log("Starting BCI data fetch...");
+      console.log("hello this running")
       const fetchData = async () => {
         try {
-          console.log("Fetching BCI data...");
+          console.log("this is try")
           const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
-          console.log("BCI data received:", response.data);
           setReadings(response.data);
         } catch (error) {
           console.error('Error fetching BCI data:', error);
@@ -184,44 +123,10 @@ export const TestInterface = () => {
         clearInterval(intervalId);
       }
     };
-  }, [isTestActive, showCalibration]);
-
-  // Add effect to update cognitive load based on predictions
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | null = null;
-    
-    if (isTestActive && !showCalibration) {
-      console.log('=== Starting Cognitive Load Updates ===');
-      const updateCognitiveLoad = async () => {
-        try {
-          console.log('Fetching new predictions...');
-          const predictions = await fetchPredictionCSV();
-          console.log('Received predictions:', predictions);
-          
-          const newLoad = determineCognitiveLoad(predictions);
-          console.log('New cognitive load determined:', newLoad);
-          
-          setCognitiveLoad(newLoad);
-          console.log('Cognitive load state updated');
-        } catch (error) {
-          console.error('Error updating cognitive load:', error);
-        }
-      };
-
-      updateCognitiveLoad();
-      intervalId = setInterval(updateCognitiveLoad, 1000);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isTestActive, showCalibration]);
+  }, [isTestActive, showCalibration]); // Effect depends on these states
 
   // Get the latest reading (last in the array)
   const latestReading = readings[readings.length - 1];
-  console.log("Latest BCI reading:", latestReading);
 
   // Initialize with questions
   useEffect(() => {
@@ -315,58 +220,36 @@ export const TestInterface = () => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // When a new question is shown, start recording
+  useEffect(() => {
+    if (currentQuestion) {
+      startRecording();
+    }
+  }, [currentQuestion]);
+
   // Handle answer submission
   const handleAnswerSubmitted = async (isCorrect: boolean, userAnswer: string) => {
-    console.log('=== Answer Submitted ===');
-    console.log('Current Question:', currentQuestion);
-    console.log('Current Answered Questions:', answeredQuestions);
-    console.log('Current Question Pool:', questionPool);
-    console.log('Current Difficulty:', currentDifficulty);
-    
-    if (!currentQuestion) {
-        console.error('No current question available');
-        return;
-    }
-
-    // Create new answered questions array first
-    const updatedAnsweredQuestions = [...answeredQuestions, currentQuestion.id];
-    console.log('New Answered Questions Array:', updatedAnsweredQuestions);
-    console.log('Current Question ID being added:', currentQuestion.id);
-
-    // Handle async operations in a try-catch block
-    let predictions = [];
-    try {
-        // Stop recording and analyze predictions
-        await stopRecording();
-        predictions = await fetchPredictionCSV();
-        console.log('Successfully fetched predictions:', predictions);
-    } catch (error) {
-        console.warn('Failed to fetch predictions, continuing with default values:', error);
-        predictions = [0, 0]; // Default values if fetch fails
-    }
-
+    // Stop recording and analyze predictions
+    await stopRecording();
+    const predictions = await fetchPredictionCSV();
     const ones = predictions.filter((v) => v === 1).length;
     const zeros = predictions.filter((v) => v === 0).length;
-    console.log('Predictions:', { ones, zeros });
 
-    const newMetrics = updateBCIMetrics(isCorrect);
-    
     // Record test result
-    const timeSpent = (Date.now() - questionStartTime) / 1000;
-    console.log('Time spent:', timeSpent);
-    
-    // Format timestamp
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const formattedTimestamp = `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    if (currentQuestion) {
+      const timeSpent = (Date.now() - questionStartTime) / 1000;
+      
+      // Format timestamp as DD/MM/YYYY, HH:mm:ss
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      const formattedTimestamp = `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
 
-    // Update test results
-    setTestResults(prev => [...prev, {
+      setTestResults(prev => [...prev, {
         questionId: currentQuestion.id,
         question: currentQuestion.text,
         difficulty: currentQuestion.difficulty,
@@ -374,13 +257,35 @@ export const TestInterface = () => {
         userAnswer: userAnswer,
         correctAnswer: currentQuestion.correctAnswer,
         timeSpent: timeSpent,
-        alpha: newMetrics.alpha,
-        beta: newMetrics.beta,
-        theta: newMetrics.theta,
-        cognitiveLoad: newMetrics.cognitiveLoad,
+        alpha: currentMetrics.alpha,
+        beta: currentMetrics.beta,
+        theta: currentMetrics.theta,
+        cognitiveLoad: currentMetrics.cognitiveLoad,
         timestamp: formattedTimestamp
-    }]);
+      }]);
+    }
     
+    setAnsweredQuestions(prev => [...prev, currentQuestion?.id || 0]);
+
+    // Check if we've reached the end of the test
+    if (isSampleTest) {
+      if (answeredQuestions.length + 1 >= 15) {
+        setCurrentQuestion(null);
+        setIsTestActive(false);
+        setIsTestComplete(true);
+        setShowResults(true);
+        return;
+      }
+    } else {
+      if (answeredQuestions.length + 1 >= 10) {
+        setCurrentQuestion(null);
+        setIsTestActive(false);
+        setIsTestComplete(true);
+        setShowResults(true);
+        return;
+      }
+    }
+
     // === Adjust difficulty based on predictions in CSV ===
     let newDifficulty = currentDifficulty;
     if (ones > zeros) {
@@ -391,84 +296,50 @@ export const TestInterface = () => {
       if (currentDifficulty === 'hard') newDifficulty = 'medium';
       else if (currentDifficulty === 'medium') newDifficulty = 'easy';
       else newDifficulty = 'easy';
-    }
-    console.log('Difficulty Change:', { from: currentDifficulty, to: newDifficulty });
+    } // else, stays the same
+    setCurrentDifficulty(newDifficulty);
 
-    // Find next question before updating states
-    let nextQuestion;
-    if (isSampleTest) {
-      nextQuestion = getSampleQuestionByIndex(updatedAnsweredQuestions.length);
-    } else {
-      // Get all questions of the new difficulty
-      const questionsOfNewDifficulty = getQuestionsByDifficulty(newDifficulty);
-      console.log('All questions of new difficulty:', questionsOfNewDifficulty);
-      
-      // Filter out answered questions
-      const availableQuestions = questionsOfNewDifficulty.filter(q => !updatedAnsweredQuestions.includes(q.id));
-      console.log('Available Questions after filtering:', availableQuestions);
-      
-      if (availableQuestions.length > 0) {
-        nextQuestion = availableQuestions[0];
-        console.log('Selected next question from available questions:', nextQuestion);
-      } else {
-        // If no questions of new difficulty are available, try other difficulties
-        const allQuestions = getQuestionsByDifficulty('easy')
-            .concat(getQuestionsByDifficulty('medium'))
-            .concat(getQuestionsByDifficulty('hard'));
-        const anyAvailableQuestions = allQuestions.filter(q => !updatedAnsweredQuestions.includes(q.id));
-        console.log('Any available questions from all difficulties:', anyAvailableQuestions);
-        
-        if (anyAvailableQuestions.length > 0) {
-          nextQuestion = anyAvailableQuestions[0];
-          console.log('Selected next question from all difficulties:', nextQuestion);
-        }
-      }
-    }
-    
-    console.log('Final Next Question:', nextQuestion);
+    // Find next question before updating state
+    const nextQuestion = isSampleTest 
+      ? getSampleQuestionByIndex(answeredQuestions.length + 1)
+      : findNextQuestion();
 
-    // Check if we've reached the end of the test
-    if (isSampleTest) {
-      if (updatedAnsweredQuestions.length >= 15) {
-        setCurrentQuestion(null);
-        setIsTestActive(false);
-        setIsTestComplete(true);
-        setShowResults(true);
-        return;
-      }
-    } else {
-      if (updatedAnsweredQuestions.length >= 10) {
-        setCurrentQuestion(null);
-        setIsTestActive(false);
-        setIsTestComplete(true);
-        setShowResults(true);
-        return;
-      }
-    }
-
-    // Update all states - React will batch these updates automatically
     if (nextQuestion) {
-      console.log('Setting New Question:', nextQuestion);
-      setAnsweredQuestions(updatedAnsweredQuestions);
-      setCurrentDifficulty(newDifficulty);
       setCurrentQuestion(nextQuestion);
       setQuestionStartTime(Date.now());
-      
-      // Start recording for the next question in a try-catch block
-      try {
-        await startRecording();
-        console.log('Successfully started recording for next question');
-      } catch (error) {
-        console.warn('Failed to start recording, continuing with next question:', error);
-      }
+      // Start recording for the next question
+      await startRecording();
     } else {
-      console.log('No More Questions Available');
-      setAnsweredQuestions(updatedAnsweredQuestions);
-      setCurrentDifficulty(newDifficulty);
       setCurrentQuestion(null);
       setIsTestActive(false);
       setIsTestComplete(true);
       setShowResults(true);
+    }
+  };
+
+  // Find the next question based on difficulty and answered questions
+  const findNextQuestion = () => {
+    const availableQuestions = questionPool.filter(q => !answeredQuestions.includes(q.id));
+    
+    if (availableQuestions.length > 0) {
+      // For full test, adapt difficulty based on cognitive load
+      let targetDifficulty = currentDifficulty;
+
+      // This cognitive load logic is now handled in handleAnswerSubmitted, 
+      // so we just need to find a question of the currentDifficulty
+      const questionsOfCurrentDifficulty = availableQuestions.filter(q => q.difficulty === targetDifficulty);
+
+      if (questionsOfCurrentDifficulty.length > 0) {
+        // For simplicity, just pick the first available question of the target difficulty
+        return questionsOfCurrentDifficulty[0];
+      } else {
+        // If no questions of the target difficulty are available, 
+        // fall back to any available question (this might need refinement)
+        console.warn(`No questions of difficulty ${targetDifficulty} available. Picking any available question.`);
+        return availableQuestions[0];
+      }
+    } else {
+      return null; // No more questions
     }
   };
 
@@ -666,33 +537,23 @@ export const TestInterface = () => {
           {/* BCI Data Display */}
           <div className="mb-8 bg-gray-800 rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">BCI Metrics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-gray-700 rounded-lg p-4 text-center">
                 <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
                 <p className="text-3xl font-bold">
-                  {latestReading?.alpha?.toFixed(2) || '0.00'}
+                  {latestReading?.alpha.toFixed(2) || '0.00'}
                 </p>
               </div>
               <div className="bg-gray-700 rounded-lg p-4 text-center">
                 <h3 className="text-lg text-green-400 mb-2">Beta</h3>
                 <p className="text-3xl font-bold">
-                  {latestReading?.beta?.toFixed(2) || '0.00'}
+                  {latestReading?.beta.toFixed(2) || '0.00'}
                 </p>
               </div>
               <div className="bg-gray-700 rounded-lg p-4 text-center">
                 <h3 className="text-lg text-purple-400 mb-2">Theta</h3>
                 <p className="text-3xl font-bold">
-                  {latestReading?.theta?.toFixed(2) || '0.00'}
-                </p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-yellow-400 mb-2">Cognitive Load</h3>
-                <p className={`text-3xl font-bold ${
-                  cognitiveLoad === 'High' ? 'text-red-500' :
-                  cognitiveLoad === 'Low' ? 'text-green-500' :
-                  'text-yellow-500'
-                }`}>
-                  {cognitiveLoad}
+                  {latestReading?.theta.toFixed(2) || '0.00'}
                 </p>
               </div>
             </div>
