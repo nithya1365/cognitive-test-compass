@@ -57,6 +57,10 @@ const fetchPredictionCSV = async (): Promise<number[]> => {
       }
     });
     
+    console.log('Response status:', resp.status);
+    console.log('Response headers:', resp.headers);
+    console.log('Full response:', resp);
+    
     if (!resp.data) {
       console.error('No data received from predictions endpoint');
       return [];
@@ -64,36 +68,36 @@ const fetchPredictionCSV = async (): Promise<number[]> => {
     
     console.log('Raw predictions response:', resp.data);
     
-    // If the response is an array, use it directly
-    if (Array.isArray(resp.data)) {
-      const predictions = resp.data.filter((v: number) => v === 0 || v === 1);
-      console.log('Processed predictions:', predictions);
-      return predictions;
+    // Extract the prediction value from the response
+    const prediction = resp.data.prediction;
+    console.log('Extracted prediction value:', prediction);
+    
+    if (prediction === undefined) {
+      console.error('No prediction value found in response');
+      return [];
     }
     
-    // If the response is an object with a predictions field
-    if (resp.data.predictions) {
-      const predictions = resp.data.predictions.filter((v: number) => v === 0 || v === 1);
-      console.log('Processed predictions:', predictions);
-      return predictions;
-    }
+    // Return an array with the single prediction value
+    const result = [prediction];
+    console.log('Returning prediction array:', result);
+    return result;
     
-    console.error('Unexpected response format:', resp.data);
-    return [];
   } catch (e) {
     console.error('Failed to fetch predictions:', e);
     if (axios.isAxiosError(e)) {
       console.error('Axios error details:', {
         status: e.response?.status,
         statusText: e.response?.statusText,
-        data: e.response?.data
+        data: e.response?.data,
+        headers: e.response?.headers,
+        config: e.config
       });
     }
     return [];
   }
 };
 
-// Update the cognitive load determination to handle empty predictions better
+// Update the cognitive load determination to handle single prediction
 const determineCognitiveLoad = (predictions: number[]): 'Low' | 'Medium' | 'High' => {
   console.log('=== Determining Cognitive Load ===');
   console.log('Input predictions:', predictions);
@@ -103,20 +107,14 @@ const determineCognitiveLoad = (predictions: number[]): 'Low' | 'Medium' | 'High
     return 'Medium';
   }
   
-  const ones = predictions.filter(v => v === 1).length;
-  const zeros = predictions.filter(v => v === 0).length;
-  const total = predictions.length;
+  // Since we're now getting a single prediction value
+  const prediction = predictions[0];
+  console.log('Single prediction value:', prediction);
   
-  console.log('Ones:', ones);
-  console.log('Zeros:', zeros);
-  console.log('Total:', total);
-  
-  const highLoadRatio = ones / total;
-  console.log('High load ratio:', highLoadRatio);
-  
+  // Convert prediction (0 or 1) to cognitive load
   let result: 'Low' | 'Medium' | 'High';
-  if (highLoadRatio >= 0.7) result = 'High';
-  else if (highLoadRatio <= 0.3) result = 'Low';
+  if (prediction === 1) result = 'High';
+  else if (prediction === 0) result = 'Low';
   else result = 'Medium';
   
   console.log('Determined cognitive load:', result);
@@ -153,6 +151,7 @@ export const TestInterface = () => {
   const [calibrationComplete, setCalibrationComplete] = useState(!isSampleTest);
   const [readings, setReadings] = useState<BCIReading[]>([]);
   const [cognitiveLoad, setCognitiveLoad] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  const [rawPredictions, setRawPredictions] = useState<number[]>([]);
 
   // Add BCI data fetching - runs when test is active OR calibration is showing
   useEffect(() => {
@@ -198,22 +197,31 @@ export const TestInterface = () => {
           const predictions = await fetchPredictionCSV();
           console.log('Received predictions:', predictions);
           
+          // Update raw predictions state
+          setRawPredictions(predictions);
+          console.log('Updated raw predictions state:', predictions);
+          
           const newLoad = determineCognitiveLoad(predictions);
           console.log('New cognitive load determined:', newLoad);
           
           setCognitiveLoad(newLoad);
-          console.log('Cognitive load state updated');
+          console.log('Cognitive load state updated to:', newLoad);
         } catch (error) {
           console.error('Error updating cognitive load:', error);
         }
       };
 
+      // Initial update
       updateCognitiveLoad();
+      
+      // Set up interval
       intervalId = setInterval(updateCognitiveLoad, 1000);
+      console.log('Set up interval for cognitive load updates');
     }
 
     return () => {
       if (intervalId) {
+        console.log('Cleaning up cognitive load update interval');
         clearInterval(intervalId);
       }
     };
@@ -381,17 +389,30 @@ export const TestInterface = () => {
         timestamp: formattedTimestamp
     }]);
     
-    // === Adjust difficulty based on predictions in CSV ===
+    // === Adjust difficulty based on predictions and question count ===
     let newDifficulty = currentDifficulty;
-    if (ones > zeros) {
-      if (currentDifficulty === 'easy') newDifficulty = 'medium';
-      else if (currentDifficulty === 'medium') newDifficulty = 'hard';
-      else newDifficulty = 'hard';
-    } else if (zeros > ones) {
-      if (currentDifficulty === 'hard') newDifficulty = 'medium';
-      else if (currentDifficulty === 'medium') newDifficulty = 'easy';
-      else newDifficulty = 'easy';
+    const questionCount = updatedAnsweredQuestions.length;
+    
+    // Force difficulty progression based on question count
+    if (questionCount < 3) {
+        newDifficulty = 'easy';
+    } else if (questionCount < 7) {
+        newDifficulty = 'medium';
+    } else {
+        newDifficulty = 'hard';
     }
+    
+    // Then adjust based on cognitive load if needed
+    if (ones > zeros) {
+        // If cognitive load is high, try to make it easier
+        if (newDifficulty === 'hard') newDifficulty = 'medium';
+        else if (newDifficulty === 'medium') newDifficulty = 'easy';
+    } else if (zeros > ones) {
+        // If cognitive load is low, try to make it harder
+        if (newDifficulty === 'easy') newDifficulty = 'medium';
+        else if (newDifficulty === 'medium') newDifficulty = 'hard';
+    }
+    
     console.log('Difficulty Change:', { from: currentDifficulty, to: newDifficulty });
 
     // Find next question before updating states
@@ -666,7 +687,7 @@ export const TestInterface = () => {
           {/* BCI Data Display */}
           <div className="mb-8 bg-gray-800 rounded-lg p-6">
             <h2 className="text-2xl font-semibold mb-4">BCI Metrics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="bg-gray-700 rounded-lg p-4 text-center">
                 <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
                 <p className="text-3xl font-bold">
@@ -693,6 +714,12 @@ export const TestInterface = () => {
                   'text-yellow-500'
                 }`}>
                   {cognitiveLoad}
+                </p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4 text-center">
+                <h3 className="text-lg text-orange-400 mb-2">Raw Predictions</h3>
+                <p className="text-3xl font-bold text-orange-500">
+                  {rawPredictions.join(', ')}
                 </p>
               </div>
             </div>

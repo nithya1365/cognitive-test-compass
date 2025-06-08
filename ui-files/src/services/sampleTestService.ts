@@ -1,7 +1,7 @@
 import { Question, DifficultyLevel } from './dataService';
 
 // Pool of easy questions
-const easyQuestionsPool: Question[] = [
+export const easyQuestionsPool: Question[] = [
   {
     id: 101,
     text: "What is 18 + 29?",
@@ -81,7 +81,7 @@ const easyQuestionsPool: Question[] = [
 ];
 
 // Pool of hard questions
-const hardQuestionsPool: Question[] = [
+export const hardQuestionsPool: Question[] = [
   {
     id: 201,
     text: "Evaluate: ∫ cos²(x) dx",
@@ -196,6 +196,9 @@ const hardQuestionsPool: Question[] = [
   }
 ];
 
+// Cache for the current test's questions
+let currentTestQuestions: Question[] | null = null;
+
 // Helper function to get random questions from a pool
 const getRandomQuestions = (pool: Question[], count: number): Question[] => {
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
@@ -204,12 +207,18 @@ const getRandomQuestions = (pool: Question[], count: number): Question[] => {
 
 // Function to get all sample test questions in order
 export const getSampleTestQuestions = (): Question[] => {
+  // If we already have questions cached, return them
+  if (currentTestQuestions) {
+    return currentTestQuestions;
+  }
+
   // Get 10 random easy questions and 5 random hard questions
   const selectedEasyQuestions = getRandomQuestions(easyQuestionsPool, 10);
   const selectedHardQuestions = getRandomQuestions(hardQuestionsPool, 5);
   
-  // Combine them in order (easy first, then hard)
-  return [...selectedEasyQuestions, ...selectedHardQuestions];
+  // Combine them in order (easy first, then hard) and cache the result
+  currentTestQuestions = [...selectedEasyQuestions, ...selectedHardQuestions];
+  return currentTestQuestions;
 };
 
 // Function to get questions by phase (easy or hard)
@@ -224,4 +233,9 @@ export const getSampleQuestionByIndex = (index: number): Question | null => {
     return allQuestions[index];
   }
   return null;
+};
+
+// Function to reset the test questions (call this when starting a new test)
+export const resetSampleTestQuestions = (): void => {
+  currentTestQuestions = null;
 }; 

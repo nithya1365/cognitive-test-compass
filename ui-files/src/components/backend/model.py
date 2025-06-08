@@ -153,4 +153,4 @@ merged_data.to_csv(os.path.join(current_dir, "model_output.csv"), index=False)
 print("\n=== Files Saved ===")
 for fname in ['graph.png', 'confusion_matrix.png', 'graph_svm.png', 'model_output.csv', 'trained_model.pkl']:
     path = os.path.join(current_dir, fname)
-    print(f"{fname}: {'Exists' if os.path.exists(path) else 'Missing'} ({os.path.getsize(path)} bytes)")
+    print(f"{fname}: {'Exists' if os.path.exists(path) else 'Missing'} ({os.path.getsize(path)} bytes)") 

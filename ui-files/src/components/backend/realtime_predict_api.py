@@ -18,6 +18,13 @@ model = joblib.load("trained_model.pkl")
 BCI_CSV_PATH = os.path.join(os.path.dirname(__file__), 'bci_calm.csv')
 baseline_alpha = None
 
+# Global variable to store current cognitive load state
+current_cognitive_state = {
+    "load": "unknown",
+    "confidence": 0.0,
+    "last_update": None
+}
+
 def load_baseline():
     global baseline_alpha
     df = pd.read_csv(BCI_CSV_PATH)
@@ -35,7 +42,41 @@ PREDICTION_CSV = os.path.join(os.path.dirname(__file__), 'realtime_predictions.c
 if not os.path.exists(PREDICTION_CSV):
     with open(PREDICTION_CSV, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['timestamp', 'CI_Alpha', 'alpha_apen', 'beta_apen', 'theta_apen', 'prediction', 'label'])
+        writer.writerow(['timestamp', 'CI_Alpha', 'alpha_apen', 'beta_apen', 'theta_apen', 'prediction', 'label', 'confidence'])
+
+def get_latest_prediction():
+    try:
+        print("=== Getting Latest Prediction ===")
+        if not os.path.exists(PREDICTION_CSV):
+            print("Prediction CSV file does not exist")
+            return None
+        
+        # Read the last line of the CSV file
+        with open(PREDICTION_CSV, 'r') as f:
+            lines = f.readlines()
+            print(f"Total lines in CSV: {len(lines)}")
+            if len(lines) <= 1:  # Only header or empty file
+                print("CSV file is empty or only contains header")
+                return None
+            
+            # Get the last line and parse it
+            last_line = lines[-1].strip().split(',')
+            print(f"Last line from CSV: {last_line}")
+            if len(last_line) >= 6:  # Make sure we have enough columns
+                result = {
+                    'timestamp': last_line[0],
+                    'prediction': int(last_line[5]),  # The prediction column (0 or 1)
+                    'label': last_line[6],  # The label column
+                    'confidence': float(last_line[7]) if len(last_line) > 7 else 0.0
+                }
+                print(f"Parsed prediction result: {result}")
+                return result
+            else:
+                print(f"Invalid line format. Expected at least 6 columns, got {len(last_line)}")
+    except Exception as e:
+        print(f"Error reading latest prediction: {e}")
+        return None
+    return None
 
 # === Background Thread for Real-Time Prediction ===
 def realtime_predict_loop():
@@ -74,17 +115,32 @@ def realtime_predict_loop():
             avg_theta_apen = np.mean(theta_apen_vals)
             # Calculate CI_Alpha
             ci_alpha = ((baseline_alpha - avg_alpha) / baseline_alpha) * 100 if baseline_alpha else 0
-            print("avg",avg_alpha)
+            
             # Prepare input for model
             X = np.array([[ci_alpha]])
             pred = model.predict(X)[0]
+            
+            # Calculate confidence based on signal stability
+            signal_stability = 1.0 - (np.std(alpha_vals) / np.mean(alpha_vals)) if np.mean(alpha_vals) > 0 else 0
+            confidence = min(max(signal_stability, 0), 1)  # Clamp between 0 and 1
+            
             label = "High Load" if pred == 1 else "Low Load"
+            
+            # Update global cognitive state
+            global current_cognitive_state
+            current_cognitive_state = {
+                "load": label,
+                "confidence": confidence,
+                "last_update": datetime.now().isoformat()
+            }
+            
             # Use the latest timestamp in the 3s window
             latest_ts = max([r.get('TIMESTAMP', r.get('timestamp')) for r in readings])
+            
             # Store in CSV
             with open(PREDICTION_CSV, 'a', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow([latest_ts, ci_alpha, avg_alpha_apen, avg_beta_apen, avg_theta_apen, int(pred), label])
+                writer.writerow([latest_ts, ci_alpha, avg_alpha_apen, avg_beta_apen, avg_theta_apen, int(pred), label, confidence])
         except Exception as e:
             print(f"Error in realtime prediction loop: {e}")
         time.sleep(3)
@@ -93,24 +149,20 @@ def realtime_predict_loop():
 t = threading.Thread(target=realtime_predict_loop, daemon=True)
 t.start()
 
-# Optionally, endpoint to get latest prediction
-def get_latest_prediction():
-    if not os.path.exists(PREDICTION_CSV):
-        return None
-    with open(PREDICTION_CSV, 'r') as f:
-        rows = list(csv.reader(f))
-        if len(rows) < 2:
-            return None
-        header = rows[0]
-        last = rows[-1]
-        return dict(zip(header, last))
+@app.route('/cognitive_state', methods=['GET'])
+def get_cognitive_state():
+    return jsonify(current_cognitive_state)
 
 @app.route('/latest_prediction', methods=['GET'])
 def latest_prediction():
+    print("=== Latest Prediction Endpoint Called ===")
     pred = get_latest_prediction()
+    print("Latest prediction data:", pred)
     if pred:
+        print("Returning prediction:", pred)
         return jsonify(pred)
     else:
+        print("No prediction available")
         return jsonify({'error': 'No prediction yet'}), 404
 
 if __name__ == '__main__':
