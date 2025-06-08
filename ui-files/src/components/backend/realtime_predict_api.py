@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, send_file
 import joblib
 import numpy as np
 import pandas as pd
@@ -8,6 +8,7 @@ import time
 import csv
 from datetime import datetime
 import os
+from threading import Lock
 
 app = Flask(__name__)
 
@@ -32,23 +33,40 @@ load_baseline()
 
 # === CSV for Storing Predictions ===
 PREDICTION_CSV = os.path.join(os.path.dirname(__file__), 'realtime_predictions.csv')
-if not os.path.exists(PREDICTION_CSV):
+CSV_HEADER = ['timestamp', 'CI_Alpha', 'alpha_apen', 'beta_apen', 'theta_apen', 'prediction', 'label']
+
+# Thread-safe recording flag and lock
+data_lock = Lock()
+recording = False
+
+def write_csv_header():
     with open(PREDICTION_CSV, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(['timestamp', 'CI_Alpha', 'alpha_apen', 'beta_apen', 'theta_apen', 'prediction', 'label'])
+        writer.writerow(CSV_HEADER)
+
+# Ensure header exists at startup
+if not os.path.exists(PREDICTION_CSV):
+    write_csv_header()
 
 # === Background Thread for Real-Time Prediction ===
 def realtime_predict_loop():
+    global recording
     while True:
         try:
+            # Only record if recording is enabled
+            with data_lock:
+                is_recording = recording
+            if not is_recording:
+                time.sleep(0.5)
+                continue
             # Fetch last 10 readings from bci_api (should be ~1s apart, so covers ~10s)
             resp = requests.get('http://localhost:5000/api/data', timeout=2)
             if resp.status_code != 200:
-                time.sleep(3)
+                time.sleep(0.5)
                 continue
             data = resp.json()
             if not data or len(data) == 0:
-                time.sleep(3)
+                time.sleep(0.5)
                 continue
             # Only keep readings from the last 3 seconds
             now = datetime.now()
@@ -61,7 +79,7 @@ def realtime_predict_loop():
                 except Exception:
                     continue
             if len(readings) == 0:
-                time.sleep(3)
+                time.sleep(0.5)
                 continue
             # Compute averages for the 3s epoch
             alpha_vals = [float(r.get('ALPHA', r.get('alpha', 0))) for r in readings]
@@ -74,7 +92,6 @@ def realtime_predict_loop():
             avg_theta_apen = np.mean(theta_apen_vals)
             # Calculate CI_Alpha
             ci_alpha = ((baseline_alpha - avg_alpha) / baseline_alpha) * 100 if baseline_alpha else 0
-            print("avg",avg_alpha)
             # Prepare input for model
             X = np.array([[ci_alpha]])
             pred = model.predict(X)[0]
@@ -82,12 +99,13 @@ def realtime_predict_loop():
             # Use the latest timestamp in the 3s window
             latest_ts = max([r.get('TIMESTAMP', r.get('timestamp')) for r in readings])
             # Store in CSV
-            with open(PREDICTION_CSV, 'a', newline='') as f:
-                writer = csv.writer(f)
-                writer.writerow([latest_ts, ci_alpha, avg_alpha_apen, avg_beta_apen, avg_theta_apen, int(pred), label])
+            with data_lock:
+                with open(PREDICTION_CSV, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([latest_ts, ci_alpha, avg_alpha_apen, avg_beta_apen, avg_theta_apen, int(pred), label])
         except Exception as e:
             print(f"Error in realtime prediction loop: {e}")
-        time.sleep(3)
+        time.sleep(0.5)
 
 # Start background thread
 t = threading.Thread(target=realtime_predict_loop, daemon=True)
@@ -112,6 +130,27 @@ def latest_prediction():
         return jsonify(pred)
     else:
         return jsonify({'error': 'No prediction yet'}), 404
+
+# === New endpoints for recording control ===
+@app.route('/start_recording', methods=['POST'])
+def start_recording():
+    global recording
+    with data_lock:
+        recording = True
+    return jsonify({'status': 'recording started'})
+
+@app.route('/stop_recording', methods=['POST'])
+def stop_recording():
+    global recording
+    with data_lock:
+        recording = False
+        # Clear the CSV except for the header
+        write_csv_header()
+    return jsonify({'status': 'recording stopped and CSV cleared'})
+
+@app.route('/realtime_predictions.csv', methods=['GET'])
+def serve_prediction_csv():
+    return send_file(PREDICTION_CSV, mimetype='text/csv', as_attachment=False)
 
 if __name__ == '__main__':
     app.run(port=6000,debug=True)

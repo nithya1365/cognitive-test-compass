@@ -28,6 +28,42 @@ interface BCIReading {
   theta: number;
 }
 
+// Helper: Start/stop recording and fetch CSV from backend
+const startRecording = async () => {
+  try {
+    await axios.post('http://localhost:6000/start_recording');
+  } catch (e) {
+    console.error('Failed to start recording:', e);
+  }
+};
+const stopRecording = async () => {
+  try {
+    await axios.post('http://localhost:6000/stop_recording');
+  } catch (e) {
+    console.error('Failed to stop recording:', e);
+  }
+};
+const fetchPredictionCSV = async (): Promise<number[]> => {
+  try {
+    // The backend CSV is at ui-files/src/components/backend/realtime_predictions.csv
+    // We'll expose a new endpoint to get the CSV as JSON (or fetch the file directly if served)
+    // For now, fetch as text and parse
+    const resp = await axios.get('http://localhost:6000/realtime_predictions.csv');
+    const lines = resp.data.split('\n').filter((l: string) => l.trim().length > 0);
+    if (lines.length < 2) return [];
+    const header = lines[0].split(',');
+    const predIdx = header.indexOf('prediction');
+    if (predIdx === -1) return [];
+    return lines.slice(1).map((line: string) => {
+      const cols = line.split(',');
+      return parseInt(cols[predIdx], 10);
+    }).filter((v: number) => v === 0 || v === 1);
+  } catch (e) {
+    console.error('Failed to fetch prediction CSV:', e);
+    return [];
+  }
+};
+
 export const TestInterface = () => {
   const { 
     getQuestionsByDifficulty, 
@@ -184,10 +220,21 @@ export const TestInterface = () => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // When a new question is shown, start recording
+  useEffect(() => {
+    if (currentQuestion) {
+      startRecording();
+    }
+  }, [currentQuestion]);
+
   // Handle answer submission
-  const handleAnswerSubmitted = (isCorrect: boolean, userAnswer: string) => {
-    const newMetrics = updateBCIMetrics(isCorrect);
-    
+  const handleAnswerSubmitted = async (isCorrect: boolean, userAnswer: string) => {
+    // Stop recording and analyze predictions
+    await stopRecording();
+    const predictions = await fetchPredictionCSV();
+    const ones = predictions.filter((v) => v === 1).length;
+    const zeros = predictions.filter((v) => v === 0).length;
+
     // Record test result
     if (currentQuestion) {
       const timeSpent = (Date.now() - questionStartTime) / 1000;
@@ -210,48 +257,47 @@ export const TestInterface = () => {
         userAnswer: userAnswer,
         correctAnswer: currentQuestion.correctAnswer,
         timeSpent: timeSpent,
-        alpha: newMetrics.alpha,
-        beta: newMetrics.beta,
-        theta: newMetrics.theta,
-        cognitiveLoad: newMetrics.cognitiveLoad,
+        alpha: currentMetrics.alpha,
+        beta: currentMetrics.beta,
+        theta: currentMetrics.theta,
+        cognitiveLoad: currentMetrics.cognitiveLoad,
         timestamp: formattedTimestamp
       }]);
     }
     
-    // Add current question to answered questions
     setAnsweredQuestions(prev => [...prev, currentQuestion?.id || 0]);
 
     // Check if we've reached the end of the test
     if (isSampleTest) {
-      // Stop after 15 questions for sample test (10 easy + 5 hard)
       if (answeredQuestions.length + 1 >= 15) {
         setCurrentQuestion(null);
         setIsTestActive(false);
         setIsTestComplete(true);
-        setShowResults(true); // Assuming you want to show results when test is complete
+        setShowResults(true);
         return;
       }
     } else {
-      // Original logic for full test
       if (answeredQuestions.length + 1 >= 10) {
         setCurrentQuestion(null);
         setIsTestActive(false);
         setIsTestComplete(true);
-        setShowResults(true); // Assuming you want to show results when test is complete
+        setShowResults(true);
         return;
       }
     }
-    
-    // Adjust difficulty based on cognitive load (only for full test)
-    if (!isSampleTest) {
-      if (newMetrics.cognitiveLoad === 'High' && currentDifficulty !== 'easy') {
-        setCurrentDifficulty('easy');
-      } else if (newMetrics.cognitiveLoad === 'Low' && currentDifficulty !== 'hard') {
-        setCurrentDifficulty('hard');
-      } else if (newMetrics.cognitiveLoad === 'Medium' && currentDifficulty !== 'medium') {
-        setCurrentDifficulty('medium');
-      }
-    }
+
+    // === Adjust difficulty based on predictions in CSV ===
+    let newDifficulty = currentDifficulty;
+    if (ones > zeros) {
+      if (currentDifficulty === 'easy') newDifficulty = 'medium';
+      else if (currentDifficulty === 'medium') newDifficulty = 'hard';
+      else newDifficulty = 'hard';
+    } else if (zeros > ones) {
+      if (currentDifficulty === 'hard') newDifficulty = 'medium';
+      else if (currentDifficulty === 'medium') newDifficulty = 'easy';
+      else newDifficulty = 'easy';
+    } // else, stays the same
+    setCurrentDifficulty(newDifficulty);
 
     // Find next question before updating state
     const nextQuestion = isSampleTest 
@@ -261,11 +307,13 @@ export const TestInterface = () => {
     if (nextQuestion) {
       setCurrentQuestion(nextQuestion);
       setQuestionStartTime(Date.now());
+      // Start recording for the next question
+      await startRecording();
     } else {
       setCurrentQuestion(null);
       setIsTestActive(false);
       setIsTestComplete(true);
-      setShowResults(true); // Assuming you want to show results when test is complete
+      setShowResults(true);
     }
   };
 
