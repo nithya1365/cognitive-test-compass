@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { Box, Typography, Paper, Grid } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
 import { BCIMetricsGauge } from './BCIMetricsGauge';
 import { CognitiveLoadIndicator } from './CognitiveLoadIndicator';
@@ -160,6 +161,10 @@ export const TestInterface = () => {
   const [cognitiveLoad, setCognitiveLoad] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [rawPredictions, setRawPredictions] = useState<number[]>([]);
   const [accumulatedPredictions, setAccumulatedPredictions] = useState<number[]>([]);
+  const [cognitiveLoadHistory, setCognitiveLoadHistory] = useState<Array<{ timestamp: string; load: 'Low' | 'Medium' | 'High' }>>([]);
+  const [score, setScore] = useState(0);
+  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
+  const navigate = useNavigate();
 
   // Add BCI data fetching - runs when test is active OR calibration is showing
   useEffect(() => {
@@ -339,6 +344,24 @@ export const TestInterface = () => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Function to determine difficulty based on cognitive load
+  const determineDifficulty = (load: 'Low' | 'Medium' | 'High'): 'easy' | 'medium' | 'hard' => {
+    switch (load) {
+      case 'High':
+        return 'easy';
+      case 'Medium':
+        return 'medium';
+      case 'Low':
+        return 'hard';
+    }
+  };
+
+  // Function to select next question based on difficulty
+  const selectNextQuestion = (pool: Question[], diff: 'easy' | 'medium' | 'hard'): Question | null => {
+    const availableQuestions = pool.filter(q => q.difficulty === diff);
+    return availableQuestions.length > 0 ? availableQuestions[0] : null;
+  };
+
   // Handle answer submission
   const handleAnswerSubmitted = async (isCorrect: boolean, userAnswer: string) => {
     console.log('=== Answer Submitted ===');
@@ -356,7 +379,7 @@ export const TestInterface = () => {
     const updatedAnsweredQuestions = [...answeredQuestions, currentQuestion.id];
     console.log('New Answered Questions Array:', updatedAnsweredQuestions);
     console.log('Current Question ID being added:', currentQuestion.id);
-
+    
     // Process accumulated predictions
     const currentPredictions = [...accumulatedPredictions];
     console.log('=== Final Accumulated Predictions ===');
@@ -377,6 +400,11 @@ export const TestInterface = () => {
     // Determine cognitive load from accumulated predictions
     const newLoad = determineCognitiveLoad(currentPredictions);
     setCognitiveLoad(newLoad);
+
+    // Store cognitive load with timestamp
+    const now = new Date();
+    const timestamp = now.toLocaleTimeString();
+    setCognitiveLoadHistory(prev => [...prev, { timestamp, load: newLoad }]);
     
     const ones = currentPredictions.filter(p => p === 1).length;
     const zeros = currentPredictions.filter(p => p === 0).length;
@@ -390,14 +418,7 @@ export const TestInterface = () => {
     console.log('Time spent:', timeSpent);
     
     // Format timestamp
-    const now = new Date();
-    const day = String(now.getDate()).padStart(2, '0');
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const year = now.getFullYear();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    const formattedTimestamp = `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+    const formattedTimestamp = now.toLocaleString();
 
     // Update test results
     setTestResults(prev => [...prev, {
@@ -535,7 +556,7 @@ export const TestInterface = () => {
 
   // If calibration is active, show the calibration screen
   if (showCalibration && isSampleTest) {
-    return <CalibrationScreen duration={60} onComplete={handleCalibrationComplete} latestReading={latestReading} />;
+    return <CalibrationScreen duration={1} onComplete={handleCalibrationComplete} latestReading={latestReading} />;
   }
 
   // Completed state when all questions are answered or time is up
@@ -617,8 +638,36 @@ export const TestInterface = () => {
 
               <Button 
                 onClick={() => {
-                  // Navigate to results page instead of home
-                  window.location.href = '/results';
+                  if (isSampleTest) {
+                    // For sample test, only store test score and navigate to results
+                    const correctAnswers = testResults.filter(result => result.isCorrect).length;
+                    const totalQuestions = testResults.length;
+                    const score = (correctAnswers / totalQuestions) * 100;
+
+                    localStorage.setItem('testScore', JSON.stringify({
+                      score,
+                      correctAnswers,
+                      totalQuestions,
+                      isSampleTest: true
+                    }));
+
+                    navigate('/results');
+                  } else {
+                    // For real test, keep existing behavior
+                    const correctAnswers = testResults.filter(result => result.isCorrect).length;
+                    const totalQuestions = testResults.length;
+                    const score = (correctAnswers / totalQuestions) * 100;
+
+                    localStorage.setItem('cognitiveLoadHistory', JSON.stringify(cognitiveLoadHistory));
+                    localStorage.setItem('testScore', JSON.stringify({
+                      score,
+                      correctAnswers,
+                      totalQuestions,
+                      isSampleTest: false
+                    }));
+
+                    navigate('/results');
+                  }
                 }}
                 variant="ghost"
                 className="text-muted-foreground hover:text-foreground"
@@ -683,76 +732,103 @@ export const TestInterface = () => {
               </div>
             )}
             
-            {/* BCI Metrics */}
+            {/* BCI Metrics - Show for both tests */}
             <div className="bg-card rounded-xl shadow-sm p-4 mb-6 border border-border">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium text-foreground">Brain-Computer Interface Metrics</h2>
-                <CognitiveLoadIndicator level={currentMetrics.cognitiveLoad} />
+                {!isSampleTest && <CognitiveLoadIndicator level={currentMetrics.cognitiveLoad} />}
               </div>
               
               <div className="grid grid-cols-3 gap-6">
-                <BCIMetricsGauge 
-                  label="Alpha Waves" 
-                  value={currentMetrics.alpha} 
-                  colorClass="bg-bci-alpha" 
-                />
-                <BCIMetricsGauge 
-                  label="Beta Waves" 
-                  value={currentMetrics.beta} 
-                  colorClass="bg-bci-beta" 
-                />
-                <BCIMetricsGauge 
-                  label="Theta Waves" 
-                  value={currentMetrics.theta} 
-                  colorClass="bg-bci-theta" 
-                />
+                {isSampleTest ? (
+                  <>
+                    <div className="bg-gray-700 rounded-lg p-4 text-center">
+                      <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
+                      <p className="text-3xl font-bold">
+                        {latestReading?.alpha?.toFixed(2) || '0.00'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4 text-center">
+                      <h3 className="text-lg text-green-400 mb-2">Beta</h3>
+                      <p className="text-3xl font-bold">
+                        {latestReading?.beta?.toFixed(2) || '0.00'}
+                      </p>
+                    </div>
+                    <div className="bg-gray-700 rounded-lg p-4 text-center">
+                      <h3 className="text-lg text-purple-400 mb-2">Theta</h3>
+                      <p className="text-3xl font-bold">
+                        {latestReading?.theta?.toFixed(2) || '0.00'}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <BCIMetricsGauge 
+                      label="Alpha Waves" 
+                      value={currentMetrics.alpha} 
+                      colorClass="bg-bci-alpha" 
+                    />
+                    <BCIMetricsGauge 
+                      label="Beta Waves" 
+                      value={currentMetrics.beta} 
+                      colorClass="bg-bci-beta" 
+                    />
+                    <BCIMetricsGauge 
+                      label="Theta Waves" 
+                      value={currentMetrics.theta} 
+                      colorClass="bg-bci-theta" 
+                    />
+                  </>
+                )}
               </div>
             </div>
           </div>
           
-          {/* BCI Data Display */}
-          <div className="mb-8 bg-gray-800 rounded-lg p-6">
-            <h2 className="text-2xl font-semibold mb-4">BCI Metrics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
-                <p className="text-3xl font-bold">
-                  {latestReading?.alpha?.toFixed(2) || '0.00'}
-                </p>
+          {/* BCI Data Display - Only show for real test */}
+          {!isSampleTest && (
+            <div className="mb-8 bg-gray-800 rounded-lg p-6">
+              <h2 className="text-2xl font-semibold mb-4">BCI Metrics</h2>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="bg-gray-700 rounded-lg p-4 text-center">
+                  <h3 className="text-lg text-blue-400 mb-2">Alpha</h3>
+                  <p className="text-3xl font-bold">
+                    {latestReading?.alpha?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-4 text-center">
+                  <h3 className="text-lg text-green-400 mb-2">Beta</h3>
+                  <p className="text-3xl font-bold">
+                    {latestReading?.beta?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-4 text-center">
+                  <h3 className="text-lg text-purple-400 mb-2">Theta</h3>
+                  <p className="text-3xl font-bold">
+                    {latestReading?.theta?.toFixed(2) || '0.00'}
+                  </p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-4 text-center">
+                  <h3 className="text-lg text-yellow-400 mb-2">Cognitive Load</h3>
+                  <p className={`text-3xl font-bold ${
+                    cognitiveLoad === 'High' ? 'text-red-500' :
+                    cognitiveLoad === 'Low' ? 'text-green-500' :
+                    'text-yellow-500'
+                  }`}>
+                    {cognitiveLoad}
+                  </p>
+                </div>
+                <div className="bg-gray-700 rounded-lg p-4 text-center">
+                  <h3 className="text-lg text-orange-400 mb-2">Raw Predictions</h3>
+                  <p className="text-3xl font-bold text-orange-500">
+                    {rawPredictions.join(', ')}
+                  </p>
+                </div>
               </div>
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-green-400 mb-2">Beta</h3>
-                <p className="text-3xl font-bold">
-                  {latestReading?.beta?.toFixed(2) || '0.00'}
-                </p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-purple-400 mb-2">Theta</h3>
-                <p className="text-3xl font-bold">
-                  {latestReading?.theta?.toFixed(2) || '0.00'}
-                </p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-yellow-400 mb-2">Cognitive Load</h3>
-                <p className={`text-3xl font-bold ${
-                  cognitiveLoad === 'High' ? 'text-red-500' :
-                  cognitiveLoad === 'Low' ? 'text-green-500' :
-                  'text-yellow-500'
-                }`}>
-                  {cognitiveLoad}
-                </p>
-              </div>
-              <div className="bg-gray-700 rounded-lg p-4 text-center">
-                <h3 className="text-lg text-orange-400 mb-2">Raw Predictions</h3>
-                <p className="text-3xl font-bold text-orange-500">
-                  {rawPredictions.join(', ')}
-                </p>
-              </div>
+              <p className="text-sm text-gray-400 mt-4">
+                Last Updated: {latestReading?.timestamp || 'No data'}
+              </p>
             </div>
-            <p className="text-sm text-gray-400 mt-4">
-              Last Updated: {latestReading?.timestamp || 'No data'}
-            </p>
-          </div>
+          )}
           
           {/* Question Card */}
           <AnimatePresence mode="wait">
