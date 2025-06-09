@@ -97,7 +97,7 @@ const fetchPredictionCSV = async (): Promise<number[]> => {
   }
 };
 
-// Update the cognitive load determination to handle single prediction
+// Update the cognitive load determination to handle accumulated predictions
 const determineCognitiveLoad = (predictions: number[]): 'Low' | 'Medium' | 'High' => {
   console.log('=== Determining Cognitive Load ===');
   console.log('Input predictions:', predictions);
@@ -107,15 +107,22 @@ const determineCognitiveLoad = (predictions: number[]): 'Low' | 'Medium' | 'High
     return 'Medium';
   }
   
-  // Since we're now getting a single prediction value
-  const prediction = predictions[0];
-  console.log('Single prediction value:', prediction);
+  // Count ones and zeros
+  const ones = predictions.filter(p => p === 1).length;
+  const zeros = predictions.filter(p => p === 0).length;
+  const total = predictions.length;
   
-  // Convert prediction (0 or 1) to cognitive load
+  console.log('Prediction counts:', { ones, zeros, total });
+  
+  // Determine cognitive load based on majority
   let result: 'Low' | 'Medium' | 'High';
-  if (prediction === 1) result = 'High';
-  else if (prediction === 0) result = 'Low';
-  else result = 'Medium';
+  if (ones > zeros) {
+    result = 'High';
+  } else if (zeros > ones) {
+    result = 'Low';
+  } else {
+    result = 'Medium';
+  }
   
   console.log('Determined cognitive load:', result);
   return result;
@@ -152,18 +159,16 @@ export const TestInterface = () => {
   const [readings, setReadings] = useState<BCIReading[]>([]);
   const [cognitiveLoad, setCognitiveLoad] = useState<'Low' | 'Medium' | 'High'>('Medium');
   const [rawPredictions, setRawPredictions] = useState<number[]>([]);
+  const [accumulatedPredictions, setAccumulatedPredictions] = useState<number[]>([]);
 
   // Add BCI data fetching - runs when test is active OR calibration is showing
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     // Fetch data if test is active OR calibration is showing
     if (isTestActive && !showCalibration) {
-      console.log("Starting BCI data fetch...");
       const fetchData = async () => {
         try {
-          console.log("Fetching BCI data...");
           const response = await axios.get<BCIReading[]>('http://localhost:5000/api/data');
-          console.log("BCI data received:", response.data);
           setReadings(response.data);
         } catch (error) {
           console.error('Error fetching BCI data:', error);
@@ -185,43 +190,54 @@ export const TestInterface = () => {
     };
   }, [isTestActive, showCalibration]);
 
-  // Add effect to update cognitive load based on predictions
+  // Add effect to update predictions
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     
     if (isTestActive && !showCalibration) {
-      console.log('=== Starting Cognitive Load Updates ===');
-      const updateCognitiveLoad = async () => {
+      const updatePredictions = async () => {
         try {
-          console.log('Fetching new predictions...');
           const predictions = await fetchPredictionCSV();
-          console.log('Received predictions:', predictions);
+          console.log('=== Raw Prediction Data ===');
+          console.log('Prediction value:', predictions[0]);
+          console.log('Prediction type:', typeof predictions[0]);
+          console.log('Is prediction 1?', predictions[0] === 1);
+          console.log('Is prediction 0?', predictions[0] === 0);
           
-          // Update raw predictions state
+          // Update raw predictions state for display
           setRawPredictions(predictions);
-          console.log('Updated raw predictions state:', predictions);
           
-          const newLoad = determineCognitiveLoad(predictions);
-          console.log('New cognitive load determined:', newLoad);
-          
-          setCognitiveLoad(newLoad);
-          console.log('Cognitive load state updated to:', newLoad);
+          // Accumulate predictions
+          if (predictions.length > 0) {
+            setAccumulatedPredictions(prev => {
+              const newArray = [...prev, predictions[0]];
+              console.log('=== Accumulated Predictions Array ===');
+              console.log('Previous array:', prev);
+              console.log('Previous array length:', prev.length);
+              console.log('New prediction:', predictions[0]);
+              console.log('Updated array:', newArray);
+              console.log('Updated array length:', newArray.length);
+              console.log('Ones count:', newArray.filter(p => p === 1).length);
+              console.log('Zeros count:', newArray.filter(p => p === 0).length);
+              console.log('Array contents:', JSON.stringify(newArray));
+              console.log('Array type:', Array.isArray(newArray) ? 'Array' : typeof newArray);
+              return newArray;
+            });
+          }
         } catch (error) {
-          console.error('Error updating cognitive load:', error);
+          console.error('Error updating predictions:', error);
         }
       };
 
       // Initial update
-      updateCognitiveLoad();
+      updatePredictions();
       
       // Set up interval
-      intervalId = setInterval(updateCognitiveLoad, 1000);
-      console.log('Set up interval for cognitive load updates');
+      intervalId = setInterval(updatePredictions, 1000);
     }
 
     return () => {
       if (intervalId) {
-        console.log('Cleaning up cognitive load update interval');
         clearInterval(intervalId);
       }
     };
@@ -229,7 +245,7 @@ export const TestInterface = () => {
 
   // Get the latest reading (last in the array)
   const latestReading = readings[readings.length - 1];
-  console.log("Latest BCI reading:", latestReading);
+  // console.log("Latest BCI reading:", latestReading);
 
   // Initialize with questions
   useEffect(() => {
@@ -332,8 +348,8 @@ export const TestInterface = () => {
     console.log('Current Difficulty:', currentDifficulty);
     
     if (!currentQuestion) {
-        console.error('No current question available');
-        return;
+      console.error('No current question available');
+      return;
     }
 
     // Create new answered questions array first
@@ -341,21 +357,31 @@ export const TestInterface = () => {
     console.log('New Answered Questions Array:', updatedAnsweredQuestions);
     console.log('Current Question ID being added:', currentQuestion.id);
 
-    // Handle async operations in a try-catch block
-    let predictions = [];
-    try {
-        // Stop recording and analyze predictions
-        await stopRecording();
-        predictions = await fetchPredictionCSV();
-        console.log('Successfully fetched predictions:', predictions);
-    } catch (error) {
-        console.warn('Failed to fetch predictions, continuing with default values:', error);
-        predictions = [0, 0]; // Default values if fetch fails
-    }
-
-    const ones = predictions.filter((v) => v === 1).length;
-    const zeros = predictions.filter((v) => v === 0).length;
-    console.log('Predictions:', { ones, zeros });
+    // Process accumulated predictions
+    const currentPredictions = [...accumulatedPredictions];
+    console.log('=== Final Accumulated Predictions ===');
+    console.log('Full array:', currentPredictions);
+    console.log('Array length:', currentPredictions.length);
+    console.log('Array type:', Array.isArray(currentPredictions) ? 'Array' : typeof currentPredictions);
+    console.log('Ones count:', currentPredictions.filter(p => p === 1).length);
+    console.log('Zeros count:', currentPredictions.filter(p => p === 0).length);
+    console.log('Array contents:', JSON.stringify(currentPredictions));
+    console.log('First value:', currentPredictions[0]);
+    console.log('Last value:', currentPredictions[currentPredictions.length - 1]);
+    console.log('All values:', currentPredictions.map((val, idx) => `Index ${idx}: ${val}`).join(', '));
+    
+    // Clear accumulated predictions for next question
+    setAccumulatedPredictions([]);
+    console.log('Cleared accumulated predictions array');
+    
+    // Determine cognitive load from accumulated predictions
+    const newLoad = determineCognitiveLoad(currentPredictions);
+    setCognitiveLoad(newLoad);
+    
+    const ones = currentPredictions.filter(p => p === 1).length;
+    const zeros = currentPredictions.filter(p => p === 0).length;
+    console.log('Final prediction counts:', { ones, zeros });
+    console.log('Majority prediction:', ones > zeros ? 'High Load (1)' : zeros > ones ? 'Low Load (0)' : 'Equal (Medium)');
 
     const newMetrics = updateBCIMetrics(isCorrect);
     
@@ -375,18 +401,18 @@ export const TestInterface = () => {
 
     // Update test results
     setTestResults(prev => [...prev, {
-        questionId: currentQuestion.id,
-        question: currentQuestion.text,
-        difficulty: currentQuestion.difficulty,
-        isCorrect: isCorrect,
-        userAnswer: userAnswer,
-        correctAnswer: currentQuestion.correctAnswer,
-        timeSpent: timeSpent,
-        alpha: newMetrics.alpha,
-        beta: newMetrics.beta,
-        theta: newMetrics.theta,
-        cognitiveLoad: newMetrics.cognitiveLoad,
-        timestamp: formattedTimestamp
+      questionId: currentQuestion.id,
+      question: currentQuestion.text,
+      difficulty: currentQuestion.difficulty,
+      isCorrect: isCorrect,
+      userAnswer: userAnswer,
+      correctAnswer: currentQuestion.correctAnswer,
+      timeSpent: timeSpent,
+      alpha: newMetrics.alpha,
+      beta: newMetrics.beta,
+      theta: newMetrics.theta,
+      cognitiveLoad: newMetrics.cognitiveLoad,
+      timestamp: formattedTimestamp
     }]);
     
     // === Adjust difficulty based on predictions and question count ===
@@ -395,22 +421,22 @@ export const TestInterface = () => {
     
     // Force difficulty progression based on question count
     if (questionCount < 3) {
-        newDifficulty = 'easy';
+      newDifficulty = 'easy';
     } else if (questionCount < 7) {
-        newDifficulty = 'medium';
+      newDifficulty = 'medium';
     } else {
-        newDifficulty = 'hard';
+      newDifficulty = 'hard';
     }
     
     // Then adjust based on cognitive load if needed
     if (ones > zeros) {
-        // If cognitive load is high, try to make it easier
-        if (newDifficulty === 'hard') newDifficulty = 'medium';
-        else if (newDifficulty === 'medium') newDifficulty = 'easy';
+      // If cognitive load is high, try to make it easier
+      if (newDifficulty === 'hard') newDifficulty = 'medium';
+      else if (newDifficulty === 'medium') newDifficulty = 'easy';
     } else if (zeros > ones) {
-        // If cognitive load is low, try to make it harder
-        if (newDifficulty === 'easy') newDifficulty = 'medium';
-        else if (newDifficulty === 'medium') newDifficulty = 'hard';
+      // If cognitive load is low, try to make it harder
+      if (newDifficulty === 'easy') newDifficulty = 'medium';
+      else if (newDifficulty === 'medium') newDifficulty = 'hard';
     }
     
     console.log('Difficulty Change:', { from: currentDifficulty, to: newDifficulty });
