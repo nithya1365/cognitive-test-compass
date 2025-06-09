@@ -31,7 +31,7 @@ interface BCIReading {
 // Add recording helper functions
 const startRecording = async () => {
   try {
-    await axios.post('http://localhost:6000/start_recording');
+    await axios.post('http://localhost:6060/start_recording');
   } catch (e) {
     console.error('Failed to start recording:', e);
   }
@@ -39,7 +39,7 @@ const startRecording = async () => {
 
 const stopRecording = async () => {
   try {
-    await axios.post('http://localhost:6000/stop_recording');
+    await axios.post('http://localhost:6060/stop_recording');
   } catch (e) {
     console.error('Failed to stop recording:', e);
   }
@@ -48,9 +48,9 @@ const stopRecording = async () => {
 const fetchPredictionCSV = async (): Promise<number[]> => {
   try {
     console.log('=== Fetching Prediction CSV ===');
-    console.log('Attempting to fetch from: http://127.0.0.1:6000/latest_prediction');
+    console.log('Attempting to fetch from: http://127.0.0.1:6060/latest_prediction');
     
-    const resp = await axios.get('http://127.0.0.1:6000/latest_prediction', {
+    const resp = await axios.get('http://127.0.0.1:6060/latest_prediction', {
       headers: {
         'Accept': 'application/json',
         'Cache-Control': 'no-cache'

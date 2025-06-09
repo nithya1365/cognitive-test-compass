@@ -8,9 +8,11 @@ import time
 import csv
 from datetime import datetime
 import os
+from flask_cors import CORS
+
 
 app = Flask(__name__)
-
+CORS(app)
 # Load the trained SVM model
 model = joblib.load("trained_model.pkl")
 
@@ -166,4 +168,4 @@ def latest_prediction():
         return jsonify({'error': 'No prediction yet'}), 404
 
 if __name__ == '__main__':
-    app.run(port=6000,debug=True)
+    app.run(port=6060,debug=True)
